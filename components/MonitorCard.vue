@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Clock, Pause, Pencil, Play, Trash2, TrendingDown, TrendingUp } from 'lucide-vue-next'
+import { Clock, Lock, Pause, Pencil, Play, Trash2, TrendingDown, TrendingUp } from 'lucide-vue-next'
 import type { Monitor } from '~/stores/monitors'
 import { formatResponseTime, formatUptime } from '~/composables/useMonitorStats'
 import { useMonitorsStore } from '~/stores/monitors'
@@ -93,6 +93,13 @@ const trend = computed(() => {
             </Badge>
             <Badge v-if="!monitor.enabled" variant="secondary" class="text-[10px]">
               Paused
+            </Badge>
+            <Badge
+              v-if="monitor.visibility === 'private'"
+              variant="outline"
+              class="bg-gray-500/10 text-gray-400 border-gray-500/20 text-[10px] flex items-center gap-0.5"
+            >
+              <Lock class="size-2.5" />Private
             </Badge>
           </div>
           <p class="text-xs text-muted-foreground truncate mt-0.5 font-mono">{{ monitor.url }}</p>

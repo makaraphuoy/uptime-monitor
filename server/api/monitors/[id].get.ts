@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
 
     const monitor = db.select().from(monitors).where(eq(monitors.id, id)).get()
     if (!monitor) throw createError({ statusCode: 404, statusMessage: 'Monitor not found' })
+    if (monitor.userId !== event.context.user!.id) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
 
     const now = new Date()
     const day24 = new Date(now.getTime() - 24 * 60 * 60 * 1000)

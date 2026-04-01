@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Globe, Monitor, Server } from 'lucide-vue-next'
+import { Globe, Lock, Monitor, Server } from 'lucide-vue-next'
 import type { Monitor as MonitorType } from '~/stores/monitors'
 import { useMonitorsStore } from '~/stores/monitors'
 
@@ -24,6 +24,7 @@ const defaultForm = {
   intervalSeconds: 60,
   timeoutSeconds: 30,
   enabled: true,
+  visibility: 'public' as 'public' | 'private',
 }
 
 const form = ref({ ...defaultForm })
@@ -43,6 +44,7 @@ watch(
         intervalSeconds: props.monitor.intervalSeconds,
         timeoutSeconds: props.monitor.timeoutSeconds,
         enabled: props.monitor.enabled,
+        visibility: props.monitor.visibility ?? 'public',
       }
     } else {
       form.value = { ...defaultForm }
@@ -197,6 +199,21 @@ async function handleSubmit() {
           <p class="text-xs text-muted-foreground">Start checking immediately after saving</p>
         </div>
         <Switch :checked="form.enabled" @update:checked="form.enabled = $event" />
+      </div>
+
+      <!-- Visibility -->
+      <div class="flex items-center justify-between rounded-lg border border-border bg-background/50 px-4 py-3">
+        <div>
+          <p class="text-sm font-medium flex items-center gap-1.5">
+            <Globe v-if="form.visibility === 'public'" class="size-3.5 text-blue-400" />
+            <Lock v-else class="size-3.5 text-muted-foreground" />
+            {{ form.visibility === 'public' ? 'Public' : 'Private' }}
+          </p>
+          <p class="text-xs text-muted-foreground">
+            {{ form.visibility === 'public' ? 'Appears on the public /status page' : 'Only visible in your dashboard' }}
+          </p>
+        </div>
+        <Switch :checked="form.visibility === 'public'" @update:checked="form.visibility = $event ? 'public' : 'private'" />
       </div>
 
       <!-- Actions -->

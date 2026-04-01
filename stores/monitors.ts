@@ -18,6 +18,8 @@ export interface Monitor {
   intervalSeconds: number
   timeoutSeconds: number
   enabled: boolean
+  visibility: 'public' | 'private'
+  userId: number | null
   createdAt: string | null
   updatedAt: string | null
   latestHeartbeat: Heartbeat | null
@@ -34,6 +36,7 @@ export interface NewMonitorPayload {
   intervalSeconds: number
   timeoutSeconds: number
   enabled: boolean
+  visibility: 'public' | 'private'
 }
 
 export const useMonitorsStore = defineStore('monitors', () => {

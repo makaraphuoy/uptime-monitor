@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
 
     const existing = db.select().from(monitors).where(eq(monitors.id, id)).get()
     if (!existing) throw createError({ statusCode: 404, statusMessage: 'Monitor not found' })
+    if (existing.userId !== event.context.user!.id) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
 
     const body = await readBody(event)
 
@@ -23,6 +24,7 @@ export default defineEventHandler(async (event) => {
     if (body.intervalSeconds !== undefined) updateData.intervalSeconds = parseInt(body.intervalSeconds, 10)
     if (body.timeoutSeconds !== undefined) updateData.timeoutSeconds = parseInt(body.timeoutSeconds, 10)
     if (body.enabled !== undefined) updateData.enabled = body.enabled
+    if (body.visibility !== undefined) updateData.visibility = body.visibility === 'private' ? 'private' : 'public'
 
     const updated = db.update(monitors)
       .set(updateData)

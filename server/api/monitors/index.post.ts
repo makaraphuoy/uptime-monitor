@@ -3,6 +3,7 @@ import { monitors } from '../../db/schema'
 import { scheduleMonitor } from '../../plugins/scheduler'
 
 export default defineEventHandler(async (event) => {
+  // event.context.user populated by server/middleware/auth.ts
   try {
     const body = await readBody(event)
 
@@ -26,6 +27,8 @@ export default defineEventHandler(async (event) => {
       intervalSeconds,
       timeoutSeconds,
       enabled: body.enabled !== false,
+      visibility: (body.visibility === 'private' ? 'private' : 'public') as 'public' | 'private',
+      userId: event.context.user!.id,
       createdAt: new Date(),
       updatedAt: new Date()
     }

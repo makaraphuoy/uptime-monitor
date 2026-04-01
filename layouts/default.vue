@@ -1,16 +1,36 @@
 <script setup lang="ts">
 import {
   Activity,
+  ExternalLink,
   LayoutDashboard,
+  LogOut,
   Menu,
   Settings2,
+  User,
   X,
 } from 'lucide-vue-next'
 import { useMonitorsStore } from '~/stores/monitors'
+import { useAuthStore } from '~/stores/auth'
 
 const store = useMonitorsStore()
+const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
 const { isOpen, isMobileOpen, openMobile, closeMobile } = useSidebar()
+
+const showLogoutConfirm = ref(false)
+const loggingOut = ref(false)
+
+async function confirmLogout() {
+  loggingOut.value = true
+  try {
+    await auth.logout()
+    router.replace('/login')
+  } finally {
+    loggingOut.value = false
+    showLogoutConfirm.value = false
+  }
+}
 
 function isActive(path: string) {
   if (path === '/') return route.path === '/'
@@ -26,7 +46,7 @@ const statusDotClass = (status: string | undefined) => ({
 
 <template>
   <SidebarProvider>
-    <!-- ─── Desktop Sidebar ─────────────────────────────────── -->
+    <!--  Desktop Sidebar  -->
     <Sidebar collapsible="icon">
       <!-- Header: logo -->
       <SidebarHeader>
@@ -150,21 +170,39 @@ const statusDotClass = (status: string | undefined) => ({
 
       <!-- Footer -->
       <SidebarFooter>
-        <p
-          :class="[
-            'text-[11px] text-sidebar-foreground/40 truncate transition-all duration-300 text-center',
-            !isOpen && 'opacity-0',
-          ]"
+        <!-- Expanded: username + logout -->
+        <div v-if="isOpen" class="flex items-center justify-between gap-2 px-1 py-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="flex size-7 items-center justify-center rounded-full bg-primary/20 shrink-0">
+              <User class="size-3.5 text-primary" />
+            </div>
+            <span class="text-xs text-sidebar-foreground/70 truncate">{{ auth.user?.username }}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="size-7 shrink-0 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+            title="Logout"
+            @click="showLogoutConfirm = true"
+          >
+            <LogOut class="size-3.5" />
+          </Button>
+        </div>
+        <!-- Collapsed: just logout icon -->
+        <Button
+          v-else
+          variant="ghost"
+          size="icon"
+          class="size-7 mx-auto text-sidebar-foreground/50 hover:text-sidebar-foreground"
+          title="Logout"
+          @click="showLogoutConfirm = true"
         >
-          {{ store.totalMonitors }} monitor{{ store.totalMonitors !== 1 ? 's' : '' }}
-          <template v-if="store.lastFetched">
-            · {{ new Date(store.lastFetched).toLocaleTimeString() }}
-          </template>
-        </p>
+          <LogOut class="size-3.5" />
+        </Button>
       </SidebarFooter>
     </Sidebar>
 
-    <!-- ─── Main area ──────────────────────────────────────── -->
+    <!--  Main area -->
     <SidebarInset>
       <!-- Top bar (desktop: just trigger; mobile: full header) -->
       <header class="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-border bg-background/95 backdrop-blur px-4">
@@ -184,6 +222,17 @@ const statusDotClass = (status: string | undefined) => ({
 
         <!-- Spacer -->
         <div class="flex-1" />
+
+        <!-- Status page link -->
+        <NuxtLink
+          to="/status"
+          target="_blank"
+          class="hidden sm:flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          title="Public status page"
+        >
+          <ExternalLink class="size-3" />
+          <span class="hidden lg:inline">Status Page</span>
+        </NuxtLink>
 
         <!-- Live status chip -->
         <div
@@ -214,7 +263,7 @@ const statusDotClass = (status: string | undefined) => ({
       </main>
     </SidebarInset>
 
-    <!-- ─── Mobile sidebar (Sheet) ─────────────────────────── -->
+    <!--  Mobile sidebar (Sheet)  -->
     <Sheet :open="isMobileOpen" side="left" @update:open="val => !val && closeMobile()">
       <!-- Sheet header -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-sidebar-border">
@@ -272,6 +321,33 @@ const statusDotClass = (status: string | undefined) => ({
         </div>
       </div>
     </Sheet>
+    <!-- Logout confirmation -->
+    <Dialog :open="showLogoutConfirm" @update:open="showLogoutConfirm = $event">
+      <template #title>
+        <div class="flex items-center gap-3">
+          <div class="flex size-9 items-center justify-center rounded-full bg-muted shrink-0">
+            <LogOut class="size-4 text-muted-foreground" />
+          </div>
+          <span>Sign Out</span>
+        </div>
+      </template>
+      <p class="text-sm text-muted-foreground mb-5">
+        Are you sure you want to sign out?
+      </p>
+      <div class="flex gap-3">
+        <Button variant="outline" class="flex-1" :disabled="loggingOut" @click="showLogoutConfirm = false">
+          Cancel
+        </Button>
+        <Button class="flex-1 gap-2" :disabled="loggingOut" @click="confirmLogout">
+          <svg v-if="loggingOut" class="size-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <LogOut v-else class="size-3.5" />
+          Sign Out
+        </Button>
+      </div>
+    </Dialog>
   </SidebarProvider>
 </template>
 

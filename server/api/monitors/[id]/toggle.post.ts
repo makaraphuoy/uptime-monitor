@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
 
     const existing = db.select().from(monitors).where(eq(monitors.id, id)).get()
     if (!existing) throw createError({ statusCode: 404, statusMessage: 'Monitor not found' })
+    if (existing.userId !== event.context.user!.id) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
 
     const newEnabled = !existing.enabled
 

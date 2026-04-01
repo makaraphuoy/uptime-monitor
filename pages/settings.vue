@@ -143,7 +143,7 @@ const isConfigured = computed(() => {
           </div>
         </div>
 
-        <!-- ── Telegram fields ── -->
+        <!-- Telegram fields -->
         <template v-if="settings.webhookType === 'telegram'">
           <!-- Bot Token -->
           <div class="space-y-1.5">
@@ -191,7 +191,7 @@ const isConfigured = computed(() => {
           </div>
         </template>
 
-        <!-- ── Webhook URL (Discord / Slack / Generic) ── -->
+        <!-- Webhook URL (Discord / Slack / Generic) -->
         <template v-else>
           <div class="space-y-1.5">
             <Label>Webhook URL</Label>

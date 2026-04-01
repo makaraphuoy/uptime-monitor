@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { resolve } from 'path'
 import { mkdirSync } from 'fs'
+import { randomBytes, scryptSync } from 'node:crypto'
 import * as schema from './schema'
 
 const dataDir = resolve(process.cwd(), 'data')
@@ -12,8 +13,8 @@ const sqlite = new Database(dbPath)
 sqlite.pragma('journal_mode = WAL')
 sqlite.pragma('foreign_keys = ON')
 
-// Create tables if they don't exist — works in both dev and production
-// (avoids relying on the drizzle/migrations folder being present in the build output)
+// Create tables 
+
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS monitors (
     id               INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -35,9 +36,60 @@ sqlite.exec(`
     checked_at       INTEGER,
     message          TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    username      TEXT    NOT NULL UNIQUE,
+    password_hash TEXT    NOT NULL,
+    created_at    INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    token      TEXT    NOT NULL UNIQUE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER
+  );
 `)
 
+// Safe column additions (idempotent ALTER TABLE) ─
+
+const monitorCols = (sqlite.pragma('table_info(monitors)') as { name: string }[]).map(c => c.name)
+
+if (!monitorCols.includes('user_id')) {
+  sqlite.exec(`ALTER TABLE monitors ADD COLUMN user_id INTEGER REFERENCES users(id)`)
+  console.log('[DB] Added user_id column to monitors')
+}
+if (!monitorCols.includes('visibility')) {
+  sqlite.exec(`ALTER TABLE monitors ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public'`)
+  console.log('[DB] Added visibility column to monitors')
+}
+
+// Seed admin user (only if no users exist) ─
+
+const userCount = (sqlite.prepare('SELECT COUNT(*) as n FROM users').get() as { n: number }).n
+
+if (userCount === 0) {
+  const adminUsername = process.env.ADMIN_USERNAME || 'admin'
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin'
+
+  const salt = randomBytes(16).toString('hex')
+  const hash = scryptSync(adminPassword, salt, 64).toString('hex')
+  const admin = sqlite.prepare(
+    'INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?) RETURNING id'
+  ).get(adminUsername, `${salt}:${hash}`, Date.now()) as { id: number }
+
+  // Assign all existing monitors to the admin user
+  sqlite.prepare('UPDATE monitors SET user_id = ? WHERE user_id IS NULL').run(admin.id)
+
+  console.log(`[DB] Seeded admin user — username: ${adminUsername} / password: ${adminPassword}`)
+  console.log('[DB] All existing monitors assigned to admin (id:', admin.id, ')')
+}
+
 console.log('[DB] Tables ready')
+
+// Export ─
 
 export const db = drizzle(sqlite, { schema })
 export { sqlite }

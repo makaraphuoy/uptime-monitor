@@ -13,7 +13,7 @@ export async function sendNotification(
   }
 }
 
-// ── Telegram ─────────────────────────────────────────────────────────────────
+// Telegram ─
 
 async function sendTelegram(
   settings: AppSettings,
@@ -58,7 +58,7 @@ async function sendTelegram(
   }
 }
 
-// ── Webhook (Discord / Slack / Generic) ──────────────────────────────────────
+// Webhook (Discord / Slack / Generic) 
 
 async function sendWebhook(
   settings: AppSettings,
@@ -116,7 +116,7 @@ async function sendWebhook(
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers 
 
 function escapeHtml(text: string): string {
   return text
