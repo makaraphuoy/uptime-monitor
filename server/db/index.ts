@@ -5,10 +5,16 @@ import { mkdirSync } from 'fs'
 import { randomBytes, scryptSync } from 'node:crypto'
 import * as schema from './schema'
 
-const dataDir = resolve(process.cwd(), 'data')
+// DATA_DIR should be set to an absolute path in production so the database
+// location never changes regardless of the process working directory.
+const dataDir = process.env.DATA_DIR
+  ? resolve(process.env.DATA_DIR)
+  : resolve(process.cwd(), 'data')
+
 mkdirSync(dataDir, { recursive: true })
 
 const dbPath = resolve(dataDir, 'sqlite.db')
+console.log('[DB] Database path:', dbPath)
 const sqlite = new Database(dbPath)
 sqlite.pragma('journal_mode = WAL')
 sqlite.pragma('foreign_keys = ON')
