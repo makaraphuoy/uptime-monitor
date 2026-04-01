@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx nuxi:*)",
-      "Bash(node -e ':*)",
-      "Bash(ls:*)"
-    ]
-  }
-}
