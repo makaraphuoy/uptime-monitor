@@ -1,5 +1,13 @@
 export default defineNuxtConfig({
   ssr: false,
+  devServer: {
+    port: parseInt(process.env.PORT || '3000'),
+  },
+  app: {
+    head: {
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    },
+  },
   future: { compatibilityVersion: 4 },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt', 'shadcn-nuxt', '@vueuse/nuxt'],
   shadcn: {

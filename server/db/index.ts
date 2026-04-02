@@ -93,6 +93,14 @@ if (userCount === 0) {
   console.log('[DB] All existing monitors assigned to admin (id:', admin.id, ')')
 }
 
+// Indexes (idempotent) ─
+
+sqlite.exec(`
+  CREATE INDEX IF NOT EXISTS heartbeats_monitor_checked_idx ON heartbeats (monitor_id, checked_at);
+  CREATE INDEX IF NOT EXISTS monitors_user_id_idx ON monitors (user_id);
+  CREATE INDEX IF NOT EXISTS monitors_visibility_idx ON monitors (visibility);
+`)
+
 console.log('[DB] Tables ready')
 
 // Export ─

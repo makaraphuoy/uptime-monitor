@@ -1,6 +1,6 @@
 import { db } from '../../../db/index'
 import { monitors, heartbeats } from '../../../db/schema'
-import { eq, desc, gte, and } from 'drizzle-orm'
+import { eq, desc, gte, and, sql, count } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -13,71 +13,54 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
     const period = (query.period as string) || '24h'
-    const limit = parseInt((query.limit as string) || '200', 10)
+    const limit  = parseInt((query.limit  as string) || '200', 10)
 
-    let since: Date
     const now = new Date()
+    let since: Date
     switch (period) {
-      case '7d':
-        since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        break
-      case '30d':
-        since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        break
-      case '24h':
-      default:
-        since = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-        break
+      case '7d':  since = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000); break
+      case '30d': since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break
+      default:    since = new Date(now.getTime() -      24 * 60 * 60 * 1000); break
     }
 
+    const whereClause = and(eq(heartbeats.monitorId, id), gte(heartbeats.checkedAt, since))
+
+    // Rows for chart — bounded by limit
     const hbs = db.select()
       .from(heartbeats)
-      .where(
-        and(
-          eq(heartbeats.monitorId, id),
-          gte(heartbeats.checkedAt, since)
-        )
-      )
+      .where(whereClause)
       .orderBy(desc(heartbeats.checkedAt))
       .limit(limit)
       .all()
       .reverse()
 
-    // Calculate stats
-    const upCount = hbs.filter(h => h.status === 'up').length
-    const downCount = hbs.filter(h => h.status === 'down').length
-    const uptimePercent = hbs.length > 0
-      ? Math.round((upCount / hbs.length) * 1000) / 10
-      : null
+    // Stats via SQL aggregates — covers full period (not limited to chart rows)
+    const statsRow = db.select({
+      total:           count(),
+      upCount:         sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' THEN 1 ELSE 0 END)`,
+      downCount:       sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'down' THEN 1 ELSE 0 END)`,
+      avgResponseTime: sql<number>`CAST(ROUND(AVG(${heartbeats.responseTimeMs})) AS INTEGER)`,
+      minResponseTime: sql<number>`MIN(${heartbeats.responseTimeMs})`,
+      maxResponseTime: sql<number>`MAX(${heartbeats.responseTimeMs})`,
+    })
+      .from(heartbeats)
+      .where(whereClause)
+      .get()
 
-    const responseTimes = hbs
-      .filter(h => h.responseTimeMs !== null && h.responseTimeMs !== undefined)
-      .map(h => h.responseTimeMs as number)
-
-    const avgResponseTime = responseTimes.length > 0
-      ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
-      : null
-
-    const minResponseTime = responseTimes.length > 0
-      ? Math.min(...responseTimes)
-      : null
-
-    const maxResponseTime = responseTimes.length > 0
-      ? Math.max(...responseTimes)
-      : null
+    const total = statsRow?.total ?? 0
 
     return {
       heartbeats: hbs,
       stats: {
-        total: hbs.length,
-        upCount,
-        downCount,
-        uptimePercent,
-        avgResponseTime,
-        minResponseTime,
-        maxResponseTime,
-        period
-      }
+        total,
+        upCount:         statsRow?.upCount         ?? 0,
+        downCount:       statsRow?.downCount        ?? 0,
+        uptimePercent:   total > 0 ? Math.round(((statsRow?.upCount ?? 0) / total) * 1000) / 10 : null,
+        avgResponseTime: statsRow?.avgResponseTime  ?? null,
+        minResponseTime: statsRow?.minResponseTime  ?? null,
+        maxResponseTime: statsRow?.maxResponseTime  ?? null,
+        period,
+      },
     }
   } catch (err: any) {
     if (err.statusCode) throw err

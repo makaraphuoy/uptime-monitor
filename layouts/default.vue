@@ -45,7 +45,7 @@ const statusDotClass = (status: string | undefined) => ({
 </script>
 
 <template>
-  <SidebarProvider>
+  <SidebarProvider class="h-dvh overflow-hidden">
     <!--  Desktop Sidebar  -->
     <Sidebar collapsible="icon">
       <!-- Header: logo -->

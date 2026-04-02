@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
 import { relations } from 'drizzle-orm'
 
 // Users 
@@ -34,7 +34,10 @@ export const monitors = sqliteTable('monitors', {
   userId: integer('user_id').references(() => users.id),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
-})
+}, (t) => ({
+  userIdIdx:    index('monitors_user_id_idx').on(t.userId),
+  visibilityIdx: index('monitors_visibility_idx').on(t.visibility),
+}))
 
 // Heartbeats 
 
@@ -47,7 +50,10 @@ export const heartbeats = sqliteTable('heartbeats', {
   responseTimeMs: integer('response_time_ms'),
   checkedAt: integer('checked_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
   message: text('message'),
-})
+}, (t) => ({
+  // Covers all queries: filter by monitor + sort/range by time
+  monitorCheckedAtIdx: index('heartbeats_monitor_checked_idx').on(t.monitorId, t.checkedAt),
+}))
 
 // Relations ─
 

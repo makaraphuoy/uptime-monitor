@@ -1,15 +1,30 @@
-import { db } from '../db/index'
-import { monitors, heartbeats } from '../db/schema'
+import { db, sqlite } from '../db/index'
+import { monitors, heartbeats, sessions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { performCheck } from '../utils/checker'
 import { readSettings } from '../utils/settings'
 import { sendNotification } from '../utils/notify'
+
+// Maximum heartbeats retained per monitor. Override via HEARTBEAT_LIMIT env var.
+const HEARTBEAT_LIMIT = parseInt(process.env.HEARTBEAT_LIMIT || '10000', 10)
 
 // Track timers per monitor
 const monitorTimers = new Map<number, ReturnType<typeof setInterval>>()
 
 // Track last known status to detect changes
 const previousStatus = new Map<number, string>()
+
+// Prepared statement for pruning (created once, reused on every check)
+const pruneStmt = sqlite.prepare(`
+  DELETE FROM heartbeats
+  WHERE monitor_id = ?
+    AND id NOT IN (
+      SELECT id FROM heartbeats
+      WHERE monitor_id = ?
+      ORDER BY checked_at DESC
+      LIMIT ?
+    )
+`)
 
 async function checkMonitor(monitorId: number) {
   try {
@@ -34,23 +49,11 @@ async function checkMonitor(monitorId: number) {
       message: result.message
     }).run()
 
-    // Keep only last 100 heartbeats per monitor to prevent unbounded growth
-    const countResult = db.select().from(heartbeats)
-      .where(eq(heartbeats.monitorId, monitorId))
-      .all()
+    // Prune to HEARTBEAT_LIMIT in a single SQL statement
+    pruneStmt.run(monitorId, monitorId, HEARTBEAT_LIMIT)
 
-    if (countResult.length > 100) {
-      const sorted = countResult.sort((a, b) =>
-        (a.checkedAt?.getTime() ?? 0) - (b.checkedAt?.getTime() ?? 0)
-      )
-      const toDelete = sorted.slice(0, sorted.length - 100)
-      for (const hb of toDelete) {
-        db.delete(heartbeats).where(eq(heartbeats.id, hb.id)).run()
-      }
-    }
-
-    // Detect status change and fire webhook
-    const newStatus = result.status
+    // Detect status change and fire notification
+    const newStatus  = result.status
     const prevStatus = previousStatus.get(monitorId)
     previousStatus.set(monitorId, newStatus)
 
@@ -80,9 +83,7 @@ async function checkMonitor(monitorId: number) {
 
 function startMonitor(monitorId: number, intervalSeconds: number) {
   stopMonitor(monitorId)
-  // Run immediately
   checkMonitor(monitorId)
-  // Then on interval
   const timer = setInterval(() => checkMonitor(monitorId), intervalSeconds * 1000)
   monitorTimers.set(monitorId, timer)
 }
@@ -114,23 +115,54 @@ export default defineNitroPlugin(async () => {
     const allMonitors = db.select().from(monitors).all()
     let started = 0
 
-    for (const monitor of allMonitors) {
-      if (monitor.enabled) {
-        // Seed previousStatus from the latest heartbeat so we don't false-trigger on boot
-        const latest = db.select().from(heartbeats)
-          .where(eq(heartbeats.monitorId, monitor.id))
-          .all()
-          .sort((a, b) => (b.checkedAt?.getTime() ?? 0) - (a.checkedAt?.getTime() ?? 0))[0]
+    for (let i = 0; i < allMonitors.length; i++) {
+      const monitor = allMonitors[i]
+      if (!monitor.enabled) continue
 
-        if (latest) previousStatus.set(monitor.id, latest.status)
+      // Seed previousStatus from the latest heartbeat so we don't false-trigger on boot
+      const latest = db.select().from(heartbeats)
+        .where(eq(heartbeats.monitorId, monitor.id))
+        .all()
+        .sort((a, b) => (b.checkedAt?.getTime() ?? 0) - (a.checkedAt?.getTime() ?? 0))[0]
 
+      if (latest) previousStatus.set(monitor.id, latest.status)
+
+      // Stagger startup by 500 ms per monitor to avoid a thundering herd on boot
+      if (i === 0) {
         startMonitor(monitor.id, monitor.intervalSeconds)
-        started++
+      } else {
+        setTimeout(() => startMonitor(monitor.id, monitor.intervalSeconds), i * 500)
       }
+      started++
     }
 
-    console.log(`[Scheduler] Started ${started} monitor(s) out of ${allMonitors.length} total`)
+    console.log(`[Scheduler] Started ${started} monitor(s) out of ${allMonitors.length} total (staggered)`)
+    console.log(`[Scheduler] Heartbeat limit per monitor: ${HEARTBEAT_LIMIT}`)
   } catch (err) {
     console.error('[Scheduler] Failed to initialize scheduler:', err)
   }
+
+  // ─── Hourly maintenance tasks ─────────────────────────────────────────────
+
+  // Purge expired sessions
+  setInterval(() => {
+    try {
+      const result = sqlite.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now())
+      if (result.changes > 0) {
+        console.log(`[Scheduler] Pruned ${result.changes} expired session(s)`)
+      }
+    } catch (err) {
+      console.error('[Scheduler] Session cleanup failed:', err)
+    }
+  }, 60 * 60 * 1000)
+
+  // WAL checkpoint — prevents unbounded WAL file growth
+  setInterval(() => {
+    try {
+      sqlite.pragma('wal_checkpoint(TRUNCATE)')
+      console.log('[DB] WAL checkpoint completed')
+    } catch (err) {
+      console.error('[DB] WAL checkpoint failed:', err)
+    }
+  }, 60 * 60 * 1000)
 })

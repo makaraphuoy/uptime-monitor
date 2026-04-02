@@ -160,7 +160,7 @@ const trend = computed(() => {
 
     <!-- Uptime bar -->
     <div class="mt-3">
-      <UptimeBar :heartbeats="monitor.recentHeartbeats" :blocks="90" />
+      <UptimeBar :heartbeats="monitor.recentHeartbeats" :blocks="monitor.recentHeartbeats.length || 10" />
     </div>
 
     <!-- Stats row -->
