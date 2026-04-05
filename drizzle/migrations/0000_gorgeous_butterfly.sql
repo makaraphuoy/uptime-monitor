@@ -1,4 +1,4 @@
-CREATE TABLE `heartbeats` (
+CREATE TABLE IF NOT EXISTS `heartbeats` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`monitor_id` integer NOT NULL,
 	`status` text DEFAULT 'pending' NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE `heartbeats` (
 	FOREIGN KEY (`monitor_id`) REFERENCES `monitors`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `monitors` (
+CREATE TABLE IF NOT EXISTS `monitors` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
 	`url` text NOT NULL,

@@ -20,9 +20,8 @@ data/sqlite.db
 data/sqlite.db-shm
 data/sqlite.db-wal
 
-# Keep the backups directory but not individual backup files
-# (uncomment below to also ignore backups)
-# data/backups/*.db
+# Ignore backup files
+data/backups/
 
 # OS
 .DS_Store
