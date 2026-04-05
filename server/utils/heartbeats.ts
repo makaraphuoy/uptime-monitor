@@ -23,14 +23,17 @@ export function calcUptimeStats(monitorId: number): UptimeStats {
   const ms30d = now - 30 * 24 * 60 * 60 * 1000
   const ms7d  = now -  7 * 24 * 60 * 60 * 1000
   const ms24h = now -      24 * 60 * 60 * 1000
+  // checked_at is stored as Unix seconds (mode: 'timestamp'), so convert thresholds
+  const s7d  = Math.floor(ms7d  / 1000)
+  const s24h = Math.floor(ms24h / 1000)
 
   const row = db.select({
     totalMs30d: sql<number>`SUM(${heartbeats.durationMs})`,
     upMs30d:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' THEN ${heartbeats.durationMs} END)`,
-    totalMs7d:  sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${ms7d} THEN ${heartbeats.durationMs} END)`,
-    upMs7d:     sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${ms7d} THEN ${heartbeats.durationMs} END)`,
-    totalMs24h: sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${ms24h} THEN ${heartbeats.durationMs} END)`,
-    upMs24h:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${ms24h} THEN ${heartbeats.durationMs} END)`,
+    totalMs7d:  sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${s7d} THEN ${heartbeats.durationMs} END)`,
+    upMs7d:     sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${s7d} THEN ${heartbeats.durationMs} END)`,
+    totalMs24h: sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${s24h} THEN ${heartbeats.durationMs} END)`,
+    upMs24h:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${s24h} THEN ${heartbeats.durationMs} END)`,
   })
     .from(heartbeats)
     .where(and(eq(heartbeats.monitorId, monitorId), gte(heartbeats.checkedAt, new Date(ms30d))))
@@ -73,15 +76,18 @@ export function calcUptimeStatsBatch(monitorIds: number[]): Record<number, Uptim
   const ms30d = now - 30 * 24 * 60 * 60 * 1000
   const ms7d  = now -  7 * 24 * 60 * 60 * 1000
   const ms24h = now -      24 * 60 * 60 * 1000
+  // checked_at is stored as Unix seconds (mode: 'timestamp'), so convert thresholds
+  const s7d  = Math.floor(ms7d  / 1000)
+  const s24h = Math.floor(ms24h / 1000)
 
   const rows = db.select({
     monitorId:  heartbeats.monitorId,
     totalMs30d: sql<number>`SUM(${heartbeats.durationMs})`,
     upMs30d:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' THEN ${heartbeats.durationMs} END)`,
-    totalMs7d:  sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${ms7d} THEN ${heartbeats.durationMs} END)`,
-    upMs7d:     sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${ms7d} THEN ${heartbeats.durationMs} END)`,
-    totalMs24h: sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${ms24h} THEN ${heartbeats.durationMs} END)`,
-    upMs24h:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${ms24h} THEN ${heartbeats.durationMs} END)`,
+    totalMs7d:  sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${s7d} THEN ${heartbeats.durationMs} END)`,
+    upMs7d:     sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${s7d} THEN ${heartbeats.durationMs} END)`,
+    totalMs24h: sql<number>`SUM(CASE WHEN ${heartbeats.checkedAt} >= ${s24h} THEN ${heartbeats.durationMs} END)`,
+    upMs24h:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${s24h} THEN ${heartbeats.durationMs} END)`,
   })
     .from(heartbeats)
     .where(and(inArray(heartbeats.monitorId, monitorIds), gte(heartbeats.checkedAt, new Date(ms30d))))
