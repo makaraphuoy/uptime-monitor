@@ -8,6 +8,13 @@
       "when": 1774935936948,
       "tag": "0000_gorgeous_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1743897600000,
+      "tag": "0001_settings_table",
+      "breakpoints": true
     }
   ]
 }

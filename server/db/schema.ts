@@ -77,7 +77,14 @@ export const heartbeatsRelations = relations(heartbeats, ({ one }) => ({
   monitor: one(monitors, { fields: [heartbeats.monitorId], references: [monitors.id] }),
 }))
 
-// Types 
+// Settings
+
+export const settings = sqliteTable('settings', {
+  key:   text('key').primaryKey().notNull(),
+  value: text('value').notNull(),
+})
+
+// Types
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert

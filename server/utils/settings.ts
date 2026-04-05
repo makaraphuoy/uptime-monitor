@@ -1,17 +1,15 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { existsSync, readFileSync, renameSync } from 'fs'
 import { join } from 'path'
+import { db } from '../db/index'
+import { settings } from '../db/schema'
 
 export interface AppSettings {
   defaultIntervalSeconds: number
   webhookType: 'discord' | 'slack' | 'telegram' | 'generic'
-  // Discord / Slack / Generic
   webhookUrl: string
-  // Telegram
   telegramBotToken: string
   telegramChatId: string
 }
-
-const SETTINGS_FILE = join(process.cwd(), 'data', 'settings.json')
 
 const defaults: AppSettings = {
   defaultIntervalSeconds: 60,
@@ -21,30 +19,58 @@ const defaults: AppSettings = {
   telegramChatId: '',
 }
 
-// In-memory cache — avoids hitting disk on every notification check.
-// Invalidated by writeSettings() so it always reflects the latest saved value.
+// In-memory cache — invalidated by writeSettings()
 let _cache: AppSettings | null = null
 
-export function readSettings(): AppSettings {
-  if (_cache) return _cache
+// One-time migration: import data/settings.json into the DB then rename it
+function migrateFromFile() {
+  const file = join(process.cwd(), 'data', 'settings.json')
+  if (!existsSync(file)) return
   try {
-    if (!existsSync(SETTINGS_FILE)) {
-      _cache = { ...defaults }
-      return _cache
+    const saved = JSON.parse(readFileSync(file, 'utf-8')) as Partial<AppSettings>
+    const merged = { ...defaults, ...saved }
+    for (const [key, value] of Object.entries(merged)) {
+      db.insert(settings)
+        .values({ key, value: String(value) })
+        .onConflictDoUpdate({ target: settings.key, set: { value: String(value) } })
+        .run()
     }
-    _cache = { ...defaults, ...JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8')) }
-    return _cache
+    renameSync(file, file + '.migrated')
   } catch {
-    _cache = { ...defaults }
-    return _cache
+    // ignore — fall back to defaults
   }
 }
 
-export function writeSettings(settings: Partial<AppSettings>): AppSettings {
-  const next = { ...readSettings(), ...settings }
-  const dir = join(process.cwd(), 'data')
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2))
+export function readSettings(): AppSettings {
+  if (_cache) return _cache
+
+  migrateFromFile()
+
+  const rows = db.select().from(settings).all()
+  if (rows.length === 0) {
+    _cache = { ...defaults }
+    return _cache
+  }
+
+  const map = Object.fromEntries(rows.map(r => [r.key, r.value]))
+  _cache = {
+    defaultIntervalSeconds: map.defaultIntervalSeconds ? Number(map.defaultIntervalSeconds) : defaults.defaultIntervalSeconds,
+    webhookType: (map.webhookType as AppSettings['webhookType']) ?? defaults.webhookType,
+    webhookUrl: map.webhookUrl ?? defaults.webhookUrl,
+    telegramBotToken: map.telegramBotToken ?? defaults.telegramBotToken,
+    telegramChatId: map.telegramChatId ?? defaults.telegramChatId,
+  }
+  return _cache
+}
+
+export function writeSettings(data: Partial<AppSettings>): AppSettings {
+  const next = { ...readSettings(), ...data }
+  for (const [key, value] of Object.entries(next)) {
+    db.insert(settings)
+      .values({ key, value: String(value) })
+      .onConflictDoUpdate({ target: settings.key, set: { value: String(value) } })
+      .run()
+  }
   _cache = next
   return next
 }

@@ -121,6 +121,11 @@ if (userCount === 0) {
 // Indexes (idempotent) ─
 
 sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS heartbeats_monitor_checked_idx ON heartbeats (monitor_id, checked_at);
   CREATE INDEX IF NOT EXISTS monitors_user_id_idx ON monitors (user_id);
   CREATE INDEX IF NOT EXISTS monitors_visibility_idx ON monitors (visibility);
