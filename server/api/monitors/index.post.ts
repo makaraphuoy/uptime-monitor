@@ -1,6 +1,7 @@
 import { db } from '../../db/index'
 import { monitors } from '../../db/schema'
 import { scheduleMonitor } from '../../plugins/scheduler'
+import { parseRegions } from '../../utils/regions'
 
 export default defineEventHandler(async (event) => {
   // event.context.user populated by server/middleware/auth.ts
@@ -20,6 +21,11 @@ export default defineEventHandler(async (event) => {
     const intervalSeconds = body.intervalSeconds ? parseInt(body.intervalSeconds, 10) : 60
     const timeoutSeconds = body.timeoutSeconds ? parseInt(body.timeoutSeconds, 10) : 30
 
+    const validRegions = ['europe', 'north-america', 'asia', 'australia']
+    const regions: string[] = Array.isArray(body.regions)
+      ? body.regions.filter((r: string) => validRegions.includes(r))
+      : ['asia']
+
     const newMonitor = {
       name: body.name.trim(),
       url: body.url.trim(),
@@ -28,6 +34,7 @@ export default defineEventHandler(async (event) => {
       timeoutSeconds,
       enabled: body.enabled !== false,
       visibility: (body.visibility === 'private' ? 'private' : 'public') as 'public' | 'private',
+      regions: JSON.stringify(regions.length ? regions : ['asia']),
       userId: event.context.user!.id,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -40,7 +47,7 @@ export default defineEventHandler(async (event) => {
       scheduleMonitor(result.id, result.intervalSeconds, true)
     }
 
-    return result
+    return { ...result, regions: parseRegions(result.regions) }
   } catch (err: any) {
     if (err.statusCode) throw err
     throw createError({ statusCode: 500, statusMessage: err.message })

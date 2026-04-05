@@ -49,7 +49,7 @@ const emit = defineEmits<{
             <X class="size-4" />
           </DialogClose>
         </div>
-        <div class="p-5">
+        <div class="overflow-y-auto max-h-[70vh] p-5">
           <slot />
         </div>
       </DialogContent>

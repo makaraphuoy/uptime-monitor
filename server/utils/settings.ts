@@ -21,20 +21,30 @@ const defaults: AppSettings = {
   telegramChatId: '',
 }
 
+// In-memory cache — avoids hitting disk on every notification check.
+// Invalidated by writeSettings() so it always reflects the latest saved value.
+let _cache: AppSettings | null = null
+
 export function readSettings(): AppSettings {
+  if (_cache) return _cache
   try {
-    if (!existsSync(SETTINGS_FILE)) return { ...defaults }
-    return { ...defaults, ...JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8')) }
+    if (!existsSync(SETTINGS_FILE)) {
+      _cache = { ...defaults }
+      return _cache
+    }
+    _cache = { ...defaults, ...JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8')) }
+    return _cache
   } catch {
-    return { ...defaults }
+    _cache = { ...defaults }
+    return _cache
   }
 }
 
 export function writeSettings(settings: Partial<AppSettings>): AppSettings {
-  const current = readSettings()
-  const next = { ...current, ...settings }
+  const next = { ...readSettings(), ...settings }
   const dir = join(process.cwd(), 'data')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2))
+  _cache = next
   return next
 }

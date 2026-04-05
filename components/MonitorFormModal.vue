@@ -25,6 +25,7 @@ const defaultForm = {
   timeoutSeconds: 30,
   enabled: true,
   visibility: 'public' as 'public' | 'private',
+  regions: ['asia'] as string[],
 }
 
 const form = ref({ ...defaultForm })
@@ -45,6 +46,7 @@ watch(
         timeoutSeconds: props.monitor.timeoutSeconds,
         enabled: props.monitor.enabled,
         visibility: props.monitor.visibility ?? 'public',
+        regions: props.monitor.regions?.length ? [...props.monitor.regions] : ['north-america'],
       }
     } else {
       form.value = { ...defaultForm }

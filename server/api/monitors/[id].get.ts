@@ -1,6 +1,8 @@
 import { db } from '../../db/index'
 import { monitors, heartbeats } from '../../db/schema'
-import { eq, desc, gte, and } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
+import { calcUptimeStats, getRecentHeartbeats } from '../../utils/heartbeats'
+import { parseRegions } from '../../utils/regions'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -11,39 +13,10 @@ export default defineEventHandler(async (event) => {
     if (!monitor) throw createError({ statusCode: 404, statusMessage: 'Monitor not found' })
     if (monitor.userId !== event.context.user!.id) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
 
-    const now = new Date()
-    const day24 = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-    const day7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    const day30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const { latest, recent: recentHeartbeats } = getRecentHeartbeats(id, 90)
+    const uptime = calcUptimeStats(id)
 
-    const calcUptime = (since: Date) => {
-      const hbs = db.select()
-        .from(heartbeats)
-        .where(and(eq(heartbeats.monitorId, id), gte(heartbeats.checkedAt, since)))
-        .all()
-      if (hbs.length === 0) return null
-      const upCount = hbs.filter(h => h.status === 'up').length
-      return Math.round((upCount / hbs.length) * 1000) / 10
-    }
-
-    // Get latest heartbeat
-    const latestHeartbeat = db.select()
-      .from(heartbeats)
-      .where(eq(heartbeats.monitorId, id))
-      .orderBy(desc(heartbeats.checkedAt))
-      .limit(1)
-      .all()[0] || null
-
-    // Get last 90 heartbeats for status bar
-    const recentHeartbeats = db.select()
-      .from(heartbeats)
-      .where(eq(heartbeats.monitorId, id))
-      .orderBy(desc(heartbeats.checkedAt))
-      .limit(90)
-      .all()
-      .reverse()
-
-    // Get incidents (status changes)
+    // Get incidents (status changes) — bounded at 200, fine to do in JS
     const allHeartbeats = db.select()
       .from(heartbeats)
       .where(eq(heartbeats.monitorId, id))
@@ -68,10 +41,9 @@ export default defineEventHandler(async (event) => {
 
     return {
       ...monitor,
-      latestHeartbeat,
-      uptime24h: calcUptime(day24),
-      uptime7d: calcUptime(day7),
-      uptime30d: calcUptime(day30),
+      regions: parseRegions(monitor.regions),
+      latestHeartbeat: latest,
+      ...uptime,
       recentHeartbeats,
       incidents: incidents.slice(0, 20)
     }

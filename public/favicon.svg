@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="8" fill="#131e33"/>
+  <path
+    d="M 5 16
+       h 3.5
+       a 1.5 1.5 0 0 0 1.44-1.1
+       l 1.76-6.27
+       a 0.19 0.19 0 0 1 0.36 0
+       l 3.94 14.74
+       a 0.19 0.19 0 0 0 0.36 0
+       l 1.76-6.27
+       A 1.5 1.5 0 0 1 19.62 16
+       H 27"
+    fill="none"
+    stroke="#7aa0c4"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

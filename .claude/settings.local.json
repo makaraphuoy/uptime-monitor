@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(mv CardContent/CardContent.vue Card/CardContent.vue)",
+      "Bash(mv CardHeader/CardHeader.vue Card/CardHeader.vue)",
+      "Bash(mv CardTitle/CardTitle.vue Card/CardTitle.vue)",
+      "Bash(rm -rf CardContent CardHeader CardTitle)"
+    ]
+  }
+}

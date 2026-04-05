@@ -2,6 +2,7 @@ import { db } from '../../../db/index'
 import { monitors } from '../../../db/schema'
 import { eq } from 'drizzle-orm'
 import { scheduleMonitor } from '../../../plugins/scheduler'
+import { parseRegions } from '../../../utils/regions'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
     scheduleMonitor(updated.id, updated.intervalSeconds, updated.enabled)
 
-    return updated
+    return { ...updated, regions: parseRegions(updated.regions) }
   } catch (err: any) {
     if (err.statusCode) throw err
     throw createError({ statusCode: 500, statusMessage: err.message })

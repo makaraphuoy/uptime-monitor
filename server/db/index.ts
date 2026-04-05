@@ -61,6 +61,27 @@ sqlite.exec(`
 
 // Safe column additions (idempotent ALTER TABLE) ─
 
+// Heartbeat column additions
+const heartbeatCols = (sqlite.pragma('table_info(heartbeats)') as { name: string }[]).map(c => c.name)
+
+if (!heartbeatCols.includes('duration_ms')) {
+  sqlite.exec(`ALTER TABLE heartbeats ADD COLUMN duration_ms INTEGER`)
+  // Backfill: estimate duration as (checked_at - previous checked_at) per monitor, capped at interval * 2
+  sqlite.exec(`
+    UPDATE heartbeats SET duration_ms = (
+      SELECT MIN((heartbeats.checked_at - prev.checked_at), m.interval_seconds * 2000)
+      FROM heartbeats prev
+      JOIN monitors m ON m.id = heartbeats.monitor_id
+      WHERE prev.monitor_id = heartbeats.monitor_id
+        AND prev.checked_at < heartbeats.checked_at
+      ORDER BY prev.checked_at DESC
+      LIMIT 1
+    )
+    WHERE duration_ms IS NULL AND checked_at IS NOT NULL
+  `)
+  console.log('[DB] Added duration_ms column to heartbeats and backfilled estimates')
+}
+
 const monitorCols = (sqlite.pragma('table_info(monitors)') as { name: string }[]).map(c => c.name)
 
 if (!monitorCols.includes('user_id')) {
@@ -70,6 +91,10 @@ if (!monitorCols.includes('user_id')) {
 if (!monitorCols.includes('visibility')) {
   sqlite.exec(`ALTER TABLE monitors ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public'`)
   console.log('[DB] Added visibility column to monitors')
+}
+if (!monitorCols.includes('regions')) {
+  sqlite.exec(`ALTER TABLE monitors ADD COLUMN regions TEXT DEFAULT '["asia"]'`)
+  console.log('[DB] Added regions column to monitors')
 }
 
 // Seed admin user (only if no users exist) ─
@@ -92,6 +117,14 @@ if (userCount === 0) {
   console.log(`[DB] Seeded admin user — username: ${adminUsername} / password: ${adminPassword}`)
   console.log('[DB] All existing monitors assigned to admin (id:', admin.id, ')')
 }
+
+// Indexes (idempotent) ─
+
+sqlite.exec(`
+  CREATE INDEX IF NOT EXISTS heartbeats_monitor_checked_idx ON heartbeats (monitor_id, checked_at);
+  CREATE INDEX IF NOT EXISTS monitors_user_id_idx ON monitors (user_id);
+  CREATE INDEX IF NOT EXISTS monitors_visibility_idx ON monitors (visibility);
+`)
 
 console.log('[DB] Tables ready')
 

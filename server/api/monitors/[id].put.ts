@@ -2,6 +2,7 @@ import { db } from '../../db/index'
 import { monitors } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { scheduleMonitor } from '../../plugins/scheduler'
+import { parseRegions } from '../../utils/regions'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -25,6 +26,13 @@ export default defineEventHandler(async (event) => {
     if (body.timeoutSeconds !== undefined) updateData.timeoutSeconds = parseInt(body.timeoutSeconds, 10)
     if (body.enabled !== undefined) updateData.enabled = body.enabled
     if (body.visibility !== undefined) updateData.visibility = body.visibility === 'private' ? 'private' : 'public'
+    if (body.regions !== undefined) {
+      const validRegions = ['europe', 'north-america', 'asia', 'australia']
+      const regions: string[] = Array.isArray(body.regions)
+        ? body.regions.filter((r: string) => validRegions.includes(r))
+        : ['north-america']
+      updateData.regions = JSON.stringify(regions.length ? regions : ['asia'])
+    }
 
     const updated = db.update(monitors)
       .set(updateData)
@@ -35,7 +43,7 @@ export default defineEventHandler(async (event) => {
     // Reschedule with new settings
     scheduleMonitor(updated.id, updated.intervalSeconds, updated.enabled)
 
-    return updated
+    return { ...updated, regions: parseRegions(updated.regions) }
   } catch (err: any) {
     if (err.statusCode) throw err
     throw createError({ statusCode: 500, statusMessage: err.message })

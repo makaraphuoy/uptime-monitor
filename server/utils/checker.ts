@@ -30,7 +30,7 @@ export async function checkHttp(url: string, timeoutSeconds: number): Promise<Ch
     const responseTimeMs = Date.now() - start
     const message = err.name === 'AbortError'
       ? `Timeout after ${timeoutSeconds}s`
-      : (err.message || 'Connection failed')
+      :  ((err.cause as any)?.code || err.message || 'Connection failed')//(err.message || 'Connection failed')
     return {
       status: 'down',
       responseTimeMs,

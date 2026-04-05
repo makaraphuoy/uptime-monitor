@@ -27,9 +27,16 @@ interface MonitorDetail extends Monitor {
 interface HeartbeatStats {
   heartbeats: Heartbeat[]
   stats: {
-    total: number; upCount: number; downCount: number
+    upCount: number; downCount: number
     uptimePercent: number | null; avgResponseTime: number | null
     minResponseTime: number | null; maxResponseTime: number | null; period: string
+  }
+  recentChecks: {
+    data: Heartbeat[]
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
   }
 }
 
@@ -40,8 +47,9 @@ const error = ref<string | null>(null)
 const selectedPeriod = ref<'24h' | '7d' | '30d'>('24h')
 const showEditForm = ref(false)
 const showDeleteConfirm = ref(false)
-const displayLimit = ref(10)
-const DISPLAY_LIMIT_OPTIONS = [10, 20, 50, 100] as const
+const recentPage = ref(1)
+const recentPageSize = ref(20)
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
 
 async function fetchDetail() {
   try { monitor.value = await $fetch<MonitorDetail>(`/api/monitors/${monitorId.value}`) }
@@ -50,7 +58,11 @@ async function fetchDetail() {
 async function fetchHeartbeats() {
   try {
     heartbeatData.value = await $fetch<HeartbeatStats>(`/api/monitors/${monitorId.value}/heartbeats`, {
-      query: { period: selectedPeriod.value, limit: 200 },
+      query: {
+        period: selectedPeriod.value,
+        page: recentPage.value,
+        pageSize: recentPageSize.value,
+      },
     })
   } catch {}
 }
@@ -61,7 +73,8 @@ async function loadAll() {
   loading.value = false
 }
 
-watch(selectedPeriod, fetchHeartbeats)
+watch(selectedPeriod, () => { recentPage.value = 1; fetchHeartbeats() })
+watch([recentPage, recentPageSize], fetchHeartbeats)
 onMounted(loadAll)
 const { pause } = useIntervalFn(loadAll, 30000)
 onUnmounted(pause)
@@ -288,25 +301,24 @@ const uptimeColor = (val: number | null) => {
               <span class="text-muted-foreground/60 ml-1">in {{ selectedPeriod }}</span>
             </span>
           </div>
-          <!-- Display limit selector -->
           <div class="flex items-center gap-1.5 shrink-0">
-            <span class="text-xs text-muted-foreground hidden sm:inline">Show</span>
+            <span class="text-xs text-muted-foreground hidden sm:inline">Per page</span>
             <div class="flex gap-1">
               <button
-                v-for="n in DISPLAY_LIMIT_OPTIONS"
+                v-for="n in PAGE_SIZE_OPTIONS"
                 :key="n"
                 :class="[
                   'px-2 py-0.5 rounded text-xs font-medium transition-colors',
-                  displayLimit === n
+                  recentPageSize === n
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                 ]"
-                @click="displayLimit = n"
+                @click="recentPageSize = n; recentPage = 1"
               >{{ n }}</button>
             </div>
           </div>
         </div>
-        <div v-if="heartbeatData?.heartbeats.length" class="overflow-x-auto">
+        <div v-if="heartbeatData?.recentChecks.data.length" class="overflow-x-auto">
           <table class="w-full text-xs">
             <thead>
               <tr class="border-b border-border bg-muted/20">
@@ -318,7 +330,7 @@ const uptimeColor = (val: number | null) => {
             </thead>
             <tbody>
               <tr
-                v-for="hb in [...heartbeatData.heartbeats].reverse().slice(0, displayLimit)"
+                v-for="hb in heartbeatData.recentChecks.data"
                 :key="hb.id"
                 class="border-b border-border/30 hover:bg-accent/20 transition-colors"
               >
@@ -331,6 +343,26 @@ const uptimeColor = (val: number | null) => {
               </tr>
             </tbody>
           </table>
+          <!-- Pagination controls -->
+          <div class="flex items-center justify-between px-4 py-3 border-t border-border/50">
+            <span class="text-xs text-muted-foreground">
+              {{ (heartbeatData.recentChecks.page - 1) * heartbeatData.recentChecks.pageSize + 1 }}–{{ Math.min(heartbeatData.recentChecks.page * heartbeatData.recentChecks.pageSize, heartbeatData.recentChecks.total) }}
+              of {{ heartbeatData.recentChecks.total }}
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                :disabled="recentPage <= 1"
+                class="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-accent text-muted-foreground hover:text-foreground"
+                @click="recentPage--"
+              >Prev</button>
+              <span class="px-2 text-xs text-muted-foreground">{{ heartbeatData.recentChecks.page }} / {{ heartbeatData.recentChecks.totalPages }}</span>
+              <button
+                :disabled="recentPage >= heartbeatData.recentChecks.totalPages"
+                class="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-accent text-muted-foreground hover:text-foreground"
+                @click="recentPage++"
+              >Next</button>
+            </div>
+          </div>
         </div>
         <p v-else class="px-4 py-8 text-center text-sm text-muted-foreground">No checks in this period</p>
       </Card>

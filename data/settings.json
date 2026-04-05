@@ -1,0 +1,7 @@
+{
+  "defaultIntervalSeconds": 60,
+  "webhookType": "discord",
+  "webhookUrl": "",
+  "telegramBotToken": "",
+  "telegramChatId": ""
+}

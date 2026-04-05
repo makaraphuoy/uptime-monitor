@@ -82,7 +82,7 @@ function displayHost(url: string) {
           </div>
         </div>
         <NuxtLink
-          to="/login"
+          to="/"
           class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ExternalLink class="size-3" />

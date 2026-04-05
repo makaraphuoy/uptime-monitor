@@ -110,8 +110,8 @@ const isConfigured = computed(() => {
         <div class="space-y-1.5">
           <Label>Default Check Interval</Label>
           <p class="text-xs text-muted-foreground">Applied when creating new monitors</p>
-          <div class="max-w-xs">
-            <Select v-model="settings.defaultIntervalSeconds" :options="intervalOptions" />
+          <div class="w-full">
+            <Select v-model="settings.defaultIntervalSeconds" :options="intervalOptions" class="w-full" />
           </div>
         </div>
       </div>
@@ -278,10 +278,10 @@ const isConfigured = computed(() => {
           <div>
             <p class="text-sm font-medium text-foreground">Heartbeat Retention</p>
             <p class="text-xs text-muted-foreground mt-0.5">
-              Automatically keeps the latest 100 heartbeats per monitor
+              Automatically keeps the latest 10000 heartbeats per monitor
             </p>
           </div>
-          <span class="text-xs text-muted-foreground shrink-0">100 records</span>
+          <span class="text-xs text-muted-foreground shrink-0">10000 records</span>
         </div>
       </div>
     </Card>
