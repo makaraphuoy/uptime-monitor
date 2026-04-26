@@ -3,6 +3,8 @@ import { Activity } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 
 const auth = useAuthStore()
+// Initialize color mode — defaults to dark if no preference is stored
+useColorMode({ initialValue: 'dark' })
 </script>
 
 <template>

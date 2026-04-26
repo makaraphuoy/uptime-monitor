@@ -237,6 +237,9 @@ const statusDotClass = (status: string | undefined) => ({
         <!-- Spacer -->
         <div class="flex-1" />
 
+        <!-- Theme toggle -->
+        <ThemeToggle />
+
         <!-- Status page link -->
         <NuxtLink
           to="/status"
