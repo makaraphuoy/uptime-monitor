@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
-    "start": "nuxt start -p 4004",
+    "start": "nuxt start -p 4003",
     "build:safe": "node scripts/backup-db.mjs && yarn db:migrate && nuxt build",
     "preview": "node .output/server/index.mjs",
     "db:generate": "drizzle-kit generate",
