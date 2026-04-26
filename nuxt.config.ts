@@ -14,12 +14,6 @@ export default defineNuxtConfig({
     },
   },
   future: { compatibilityVersion: 4 },
-  // components: {
-  //   dirs: [
-  //     { path: '~/components/ui', pathPrefix: false, extensions: ['vue'] },
-  //     { path: '~/components', extensions: ['vue'], ignore: ['ui/**'] },
-  //   ],
-  // },
   components: [
     {
       path: '~/components',
