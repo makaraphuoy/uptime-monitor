@@ -29,7 +29,15 @@ const router = useRouter()
 const store = useMonitorsStore()
 const monitorId = computed(() => parseInt(route.params.id as string, 10))
 
+interface RegionStatus {
+  region: string
+  status: 'up' | 'down' | 'pending'
+  responseTimeMs: number | null
+  checkedAt: number | null
+  message: string | null
+}
 interface MonitorDetail extends Monitor {
+  regionStatus: RegionStatus[]
   incidents: Array<{ id: number; from: string; to: string; at: string; message: string }>
 }
 interface HeartbeatStats {
@@ -235,6 +243,23 @@ const uptimeColor = (val: number | null) => {
             {{ monitor.latestHeartbeat?.checkedAt ? new Date(monitor.latestHeartbeat.checkedAt).toLocaleTimeString() : 'Never' }}
           </p>
         </Card>
+      </div>
+
+      <!-- Per-region status -->
+      <div v-if="monitor.regionStatus?.length" class="flex flex-wrap gap-2">
+        <div
+          v-for="r in monitor.regionStatus"
+          :key="r.region"
+          class="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
+        >
+          <StatusBadge :status="r.status" size="sm" />
+          <div>
+            <p class="text-xs font-medium text-foreground capitalize">{{ r.region }}</p>
+            <p class="text-[10px] text-muted-foreground tabular-nums">
+              {{ r.responseTimeMs != null ? r.responseTimeMs + 'ms' : '—' }}
+            </p>
+          </div>
+        </div>
       </div>
 
       <!-- Status bar -->

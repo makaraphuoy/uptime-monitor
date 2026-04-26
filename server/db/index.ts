@@ -64,6 +64,11 @@ sqlite.exec(`
 // Heartbeat column additions
 const heartbeatCols = (sqlite.pragma('table_info(heartbeats)') as { name: string }[]).map(c => c.name)
 
+if (!heartbeatCols.includes('region')) {
+  sqlite.exec(`ALTER TABLE heartbeats ADD COLUMN region TEXT DEFAULT 'local'`)
+  console.log('[DB] Added region column to heartbeats')
+}
+
 if (!heartbeatCols.includes('duration_ms')) {
   sqlite.exec(`ALTER TABLE heartbeats ADD COLUMN duration_ms INTEGER`)
   // Backfill: estimate duration as (checked_at - previous checked_at) per monitor, capped at interval * 2

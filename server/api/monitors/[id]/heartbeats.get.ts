@@ -1,6 +1,7 @@
 import { db } from '../../../db/index'
 import { monitors, heartbeats } from '../../../db/schema'
 import { eq, desc, gte, and, sql, count } from 'drizzle-orm'
+// Only aggregate (region='local') heartbeats are used for stats and charts
 
 export default defineEventHandler(async (event) => {
   try {
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
       default:    since = new Date(now.getTime() -      24 * 60 * 60 * 1000); break
     }
 
-    const whereClause = and(eq(heartbeats.monitorId, id), gte(heartbeats.checkedAt, since))
+    const whereClause = and(eq(heartbeats.monitorId, id), gte(heartbeats.checkedAt, since), eq(heartbeats.region, 'local'))
 
     // Chart data — sampled/limited, oldest-first for rendering
     const chartRows = db.select()

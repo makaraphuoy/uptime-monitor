@@ -1,6 +1,6 @@
 import { db, sqlite } from '../db/index'
 import { heartbeats } from '../db/schema'
-import { eq, desc, gte, and, sql, inArray } from 'drizzle-orm'
+import { eq, desc, gte, and, sql, inArray, ne } from 'drizzle-orm'
 
 export interface UptimeStats {
   uptime24h: number | null
@@ -36,7 +36,7 @@ export function calcUptimeStats(monitorId: number): UptimeStats {
     upMs24h:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${s24h} THEN ${heartbeats.durationMs} END)`,
   })
     .from(heartbeats)
-    .where(and(eq(heartbeats.monitorId, monitorId), gte(heartbeats.checkedAt, new Date(ms30d))))
+    .where(and(eq(heartbeats.monitorId, monitorId), gte(heartbeats.checkedAt, new Date(ms30d)), eq(heartbeats.region, 'local')))
     .get()
 
   return {
@@ -53,7 +53,7 @@ export function calcUptimeStats(monitorId: number): UptimeStats {
 export function getRecentHeartbeats(monitorId: number, limit = 10) {
   const rows = db.select()
     .from(heartbeats)
-    .where(eq(heartbeats.monitorId, monitorId))
+    .where(and(eq(heartbeats.monitorId, monitorId), eq(heartbeats.region, 'local')))
     .orderBy(desc(heartbeats.checkedAt))
     .limit(limit)
     .all()
@@ -90,7 +90,7 @@ export function calcUptimeStatsBatch(monitorIds: number[]): Record<number, Uptim
     upMs24h:    sql<number>`SUM(CASE WHEN ${heartbeats.status} = 'up' AND ${heartbeats.checkedAt} >= ${s24h} THEN ${heartbeats.durationMs} END)`,
   })
     .from(heartbeats)
-    .where(and(inArray(heartbeats.monitorId, monitorIds), gte(heartbeats.checkedAt, new Date(ms30d))))
+    .where(and(inArray(heartbeats.monitorId, monitorIds), gte(heartbeats.checkedAt, new Date(ms30d)), eq(heartbeats.region, 'local')))
     .groupBy(heartbeats.monitorId)
     .all()
 
@@ -125,7 +125,7 @@ export function getRecentHeartbeatsBatch(monitorIds: number[], limit = 10) {
       SELECT *,
              ROW_NUMBER() OVER (PARTITION BY monitor_id ORDER BY checked_at DESC) AS rn
       FROM heartbeats
-      WHERE monitor_id IN (${placeholders})
+      WHERE monitor_id IN (${placeholders}) AND region = 'local'
     )
     WHERE rn <= ?
     ORDER BY monitorId, checkedAt ASC
@@ -153,4 +153,24 @@ export function getRecentHeartbeatsBatch(monitorIds: number[], limit = 10) {
   }
 
   return result
+}
+
+export function getLatestPerRegion(monitorId: number) {
+  return sqlite.prepare(`
+    SELECT region, status, response_time_ms AS responseTimeMs, checked_at AS checkedAt, message
+    FROM (
+      SELECT *,
+             ROW_NUMBER() OVER (PARTITION BY region ORDER BY checked_at DESC) AS rn
+      FROM heartbeats
+      WHERE monitor_id = ? AND region != 'local'
+    )
+    WHERE rn = 1
+    ORDER BY region
+  `).all(monitorId) as Array<{
+    region: string
+    status: 'up' | 'down' | 'pending'
+    responseTimeMs: number | null
+    checkedAt: number | null
+    message: string | null
+  }>
 }
