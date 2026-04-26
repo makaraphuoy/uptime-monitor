@@ -115,7 +115,6 @@ export async function performCheck(
       }
     }
     return checkTcp(parsed.host, parsed.port, timeoutSeconds)
-  } else {
-    return checkHttp(url, timeoutSeconds)
   }
+  return checkHttp(url, timeoutSeconds)
 }

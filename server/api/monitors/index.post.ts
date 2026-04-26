@@ -12,9 +12,9 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'Name and URL are required' })
     }
 
-    const validTypes = ['http', 'tcp']
+    const validTypes = ['http', 'tcp', 'ping']
     if (body.type && !validTypes.includes(body.type)) {
-      throw createError({ statusCode: 400, statusMessage: 'Type must be http or tcp' })
+      throw createError({ statusCode: 400, statusMessage: 'Type must be http, tcp, or ping' })
     }
 
     const validIntervals = [30, 60, 120, 300, 600, 1800, 3600]
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     const newMonitor = {
       name: body.name.trim(),
       url: body.url.trim(),
-      type: (body.type || 'http') as 'http' | 'tcp',
+      type: (body.type || 'http') as 'http' | 'tcp' | 'ping',
       intervalSeconds,
       timeoutSeconds,
       enabled: body.enabled !== false,
