@@ -52,6 +52,7 @@ export const heartbeats = sqliteTable('heartbeats', {
   durationMs: integer('duration_ms'),
   checkedAt: integer('checked_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
   message: text('message'),
+  region: text('region').default('local'),
 }, (t) => ({
   // Covers all queries: filter by monitor + sort/range by time
   monitorCheckedAtIdx: index('heartbeats_monitor_checked_idx').on(t.monitorId, t.checkedAt),

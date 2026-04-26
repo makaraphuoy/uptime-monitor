@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm'
 import { performCheck } from '../utils/checker'
 import { readSettings } from '../utils/settings'
 import { sendNotification } from '../utils/notify'
+import { readAgents, checkViaAgents, majorityStatus } from '../utils/agents'
+import { parseRegions } from '../utils/regions'
 
 // Maximum heartbeats retained per monitor. Override via HEARTBEAT_LIMIT env var.
 const HEARTBEAT_LIMIT = parseInt(process.env.HEARTBEAT_LIMIT || '10000', 10)
@@ -32,44 +34,71 @@ const pruneStmt = sqlite.prepare(`
 async function checkMonitor(monitorId: number) {
   try {
     const monitor = db.select().from(monitors).where(eq(monitors.id, monitorId)).get()
-
-    if (!monitor || !monitor.enabled) {
-      stopMonitor(monitorId)
-      return
-    }
-
-    const result = await performCheck(
-      monitor.type as 'http' | 'tcp',
-      monitor.url,
-      monitor.timeoutSeconds
-    )
+    if (!monitor || !monitor.enabled) { stopMonitor(monitorId); return }
 
     const now = Date.now()
     const prev = lastCheckedAt.get(monitorId)
     const durationMs = prev ? Math.min(now - prev, monitor.intervalSeconds * 2 * 1000) : null
     lastCheckedAt.set(monitorId, now)
 
+    const regions = parseRegions(monitor.regions)
+    const matchedAgents = readAgents().filter(a => regions.includes(a.region))
+    const useAgents = matchedAgents.length > 0 && monitor.intervalSeconds >= 30
+
+    let overallStatus: 'up' | 'down'
+    let overallMessage: string
+    let overallResponseTimeMs: number
+
+    if (useAgents) {
+      const regionResults = await checkViaAgents(
+        monitor.type as 'http' | 'tcp',
+        monitor.url,
+        monitor.timeoutSeconds,
+        regions
+      )
+
+      if (regionResults.length === 0) {
+        // All agents unreachable — fall back to local check
+        const result = await performCheck(monitor.type as 'http' | 'tcp', monitor.url, monitor.timeoutSeconds)
+        overallStatus = result.status
+        overallMessage = result.message
+        overallResponseTimeMs = result.responseTimeMs
+      } else {
+        // Insert one heartbeat per region
+        for (const r of regionResults) {
+          db.insert(heartbeats).values({
+            monitorId: monitor.id, status: r.status,
+            responseTimeMs: r.responseTimeMs, durationMs,
+            checkedAt: new Date(now), message: r.message, region: r.region,
+          }).run()
+        }
+        overallStatus = majorityStatus(regionResults)
+        overallResponseTimeMs = Math.round(regionResults.reduce((s, r) => s + r.responseTimeMs, 0) / regionResults.length)
+        overallMessage = regionResults.map(r => `${r.region}:${r.status}`).join(' ')
+      }
+    } else {
+      const result = await performCheck(monitor.type as 'http' | 'tcp', monitor.url, monitor.timeoutSeconds)
+      overallStatus = result.status
+      overallMessage = result.message
+      overallResponseTimeMs = result.responseTimeMs
+    }
+
+    // Insert aggregate heartbeat (region = 'local') — drives stats + notifications
     db.insert(heartbeats).values({
-      monitorId: monitor.id,
-      status: result.status,
-      responseTimeMs: result.responseTimeMs,
-      durationMs,
-      checkedAt: new Date(now),
-      message: result.message
+      monitorId: monitor.id, status: overallStatus,
+      responseTimeMs: overallResponseTimeMs, durationMs,
+      checkedAt: new Date(now), message: overallMessage, region: 'local',
     }).run()
 
-    // Prune to HEARTBEAT_LIMIT in a single SQL statement
     pruneStmt.run(monitorId, monitorId, HEARTBEAT_LIMIT)
 
-    // Detect status change and fire notification
-    const newStatus  = result.status
     const prevStatus = previousStatus.get(monitorId)
-    previousStatus.set(monitorId, newStatus)
+    previousStatus.set(monitorId, overallStatus)
 
     const isAlertableChange =
       prevStatus !== undefined &&
-      prevStatus !== newStatus &&
-      (newStatus === 'down' || newStatus === 'up')
+      prevStatus !== overallStatus &&
+      (overallStatus === 'down' || overallStatus === 'up')
 
     if (isAlertableChange) {
       const settings = readSettings()
@@ -80,8 +109,8 @@ async function checkMonitor(monitorId: number) {
         sendNotification(
           settings,
           { name: monitor.name, url: monitor.url },
-          newStatus as 'down' | 'up',
-          result.message
+          overallStatus,
+          overallMessage
         ).catch(() => {})
       }
     }

@@ -46,4 +46,6 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 data/settings.json.migrated
+
 CLAUDE.md
+.claude/

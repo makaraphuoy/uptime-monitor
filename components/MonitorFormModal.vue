@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Globe, Lock, Monitor, Server } from 'lucide-vue-next'
+import { Globe, Lock, MapPin, Server } from 'lucide-vue-next'
 import type { Monitor as MonitorType } from '~/stores/monitors'
 import { useMonitorsStore } from '~/stores/monitors'
 
@@ -16,6 +16,24 @@ const emit = defineEmits<{
 
 const store = useMonitorsStore()
 const isEditing = computed(() => !!props.monitor)
+
+// Regions derived from registered agents
+const availableRegions = ref<string[]>([])
+onMounted(async () => {
+  try {
+    const agents = await $fetch<{ region: string }[]>('/api/agents')
+    availableRegions.value = [...new Set(agents.map(a => a.region))]
+  } catch {}
+})
+
+function toggleRegion(region: string) {
+  const idx = form.value.regions.indexOf(region)
+  if (idx === -1) {
+    form.value.regions.push(region)
+  } else if (form.value.regions.length > 1) {
+    form.value.regions.splice(idx, 1)
+  }
+}
 
 const defaultForm = {
   name: '',
@@ -192,6 +210,29 @@ async function handleSubmit() {
             max="60"
           />
         </div>
+      </div>
+
+      <!-- Regions (only shown when agents are registered) -->
+      <div v-if="availableRegions.length" class="space-y-1.5">
+        <Label class="flex items-center gap-1.5">
+          <MapPin class="size-3.5 text-muted-foreground" />
+          Check From Regions
+        </Label>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="region in availableRegions"
+            :key="region"
+            type="button"
+            :class="[
+              'px-3 py-1.5 rounded-md text-xs font-medium border transition-colors capitalize',
+              form.regions.includes(region)
+                ? 'bg-primary/10 border-primary/50 text-primary'
+                : 'border-input text-muted-foreground hover:border-border hover:text-foreground',
+            ]"
+            @click="toggleRegion(region)"
+          >{{ region }}</button>
+        </div>
+        <p class="text-xs text-muted-foreground">Select at least one region. Majority vote determines up/down status.</p>
       </div>
 
       <!-- Enable toggle -->

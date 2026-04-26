@@ -1,7 +1,7 @@
 import { db } from '../../db/index'
 import { monitors, heartbeats } from '../../db/schema'
 import { eq, desc } from 'drizzle-orm'
-import { calcUptimeStats, getRecentHeartbeats } from '../../utils/heartbeats'
+import { calcUptimeStats, getRecentHeartbeats, getLatestPerRegion } from '../../utils/heartbeats'
 import { parseRegions } from '../../utils/regions'
 
 export default defineEventHandler(async (event) => {
@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
 
     const { latest, recent: recentHeartbeats } = getRecentHeartbeats(id, 90)
     const uptime = calcUptimeStats(id)
+    const regionStatus = getLatestPerRegion(id)
 
     // Get incidents (status changes) — bounded at 200, fine to do in JS
     const allHeartbeats = db.select()
@@ -45,6 +46,7 @@ export default defineEventHandler(async (event) => {
       latestHeartbeat: latest,
       ...uptime,
       recentHeartbeats,
+      regionStatus,
       incidents: incidents.slice(0, 20)
     }
   } catch (err: any) {
