@@ -15,7 +15,7 @@ useSeoMeta({
 const auth = useAuthStore()
 const router = useRouter()
 
-const form = ref({ username: 'admin', password: 'admin' })
+const form = ref({ username: 'admin', password: '77UGNUFLi4hwy57q7E4G' })
 const error = ref<string | null>(null)
 const submitting = ref(false)
 const showPassword = ref(false)

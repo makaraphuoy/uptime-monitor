@@ -42,6 +42,7 @@ interface MonitorDetail extends Monitor {
 }
 interface HeartbeatStats {
   heartbeats: Heartbeat[]
+  availableRegions: string[]
   stats: {
     upCount: number; downCount: number
     uptimePercent: number | null; avgResponseTime: number | null
@@ -61,11 +62,15 @@ const heartbeatData = ref<HeartbeatStats | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const selectedPeriod = ref<'24h' | '7d' | '30d'>('24h')
+const selectedRegion = ref('local')
 const showEditForm = ref(false)
 const showDeleteConfirm = ref(false)
 const recentPage = ref(1)
 const recentPageSize = ref(20)
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
+
+const formatRegionLabel = (r: string) =>
+  r === 'local' ? 'Local' : r.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
 async function fetchDetail() {
   try { monitor.value = await $fetch<MonitorDetail>(`/api/monitors/${monitorId.value}`) }
@@ -76,6 +81,7 @@ async function fetchHeartbeats() {
     heartbeatData.value = await $fetch<HeartbeatStats>(`/api/monitors/${monitorId.value}/heartbeats`, {
       query: {
         period: selectedPeriod.value,
+        region: selectedRegion.value,
         page: recentPage.value,
         pageSize: recentPageSize.value,
       },
@@ -90,6 +96,7 @@ async function loadAll() {
 }
 
 watch(selectedPeriod, () => { recentPage.value = 1; fetchHeartbeats() })
+watch(selectedRegion, () => { recentPage.value = 1; fetchHeartbeats() })
 watch([recentPage, recentPageSize], fetchHeartbeats)
 watch(monitor, (m) => {
   if (!m) return
@@ -270,17 +277,34 @@ const uptimeColor = (val: number | null) => {
 
       <!-- Response time chart -->
       <Card class="p-4">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <h2 class="text-sm font-semibold text-foreground">Response Time</h2>
-          <div class="flex gap-1">
-            <Button
-              v-for="p in ['24h', '7d', '30d']"
-              :key="p"
-              :variant="selectedPeriod === p ? 'default' : 'ghost'"
-              size="sm"
-              class="h-7 px-2.5 text-xs"
-              @click="selectedPeriod = p as any"
-            >{{ p }}</Button>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Region filter — only shown when multiple regions have data -->
+            <div v-if="heartbeatData && heartbeatData.availableRegions.length > 1" class="flex items-center gap-1 border border-border rounded-md px-1 py-0.5">
+              <button
+                v-for="r in heartbeatData.availableRegions"
+                :key="r"
+                :class="[
+                  'px-2 py-0.5 rounded text-xs font-medium transition-colors',
+                  selectedRegion === r
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+                ]"
+                @click="selectedRegion = r"
+              >{{ formatRegionLabel(r) }}</button>
+            </div>
+            <!-- Period filter -->
+            <div class="flex gap-1">
+              <Button
+                v-for="p in ['24h', '7d', '30d']"
+                :key="p"
+                :variant="selectedPeriod === p ? 'default' : 'ghost'"
+                size="sm"
+                class="h-7 px-2.5 text-xs"
+                @click="selectedPeriod = p as any"
+              >{{ p }}</Button>
+            </div>
           </div>
         </div>
 
@@ -336,12 +360,16 @@ const uptimeColor = (val: number | null) => {
       <!-- Recent checks table -->
       <Card class="overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b border-border gap-4">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
             <h2 class="text-sm font-semibold text-foreground">Recent Checks</h2>
             <span v-if="heartbeatData" class="text-xs text-muted-foreground">
               {{ heartbeatData.stats.upCount }} up · {{ heartbeatData.stats.downCount }} down
               <span class="text-muted-foreground/60 ml-1">in {{ selectedPeriod }}</span>
             </span>
+            <span
+              v-if="heartbeatData && heartbeatData.availableRegions.length > 1"
+              class="text-[10px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border"
+            >{{ formatRegionLabel(selectedRegion) }}</span>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
             <span class="text-xs text-muted-foreground hidden sm:inline">Per page</span>
@@ -365,6 +393,7 @@ const uptimeColor = (val: number | null) => {
             <thead>
               <tr class="border-b border-border bg-muted/20">
                 <th class="text-left font-medium text-muted-foreground px-4 py-2.5">Status</th>
+                <th v-if="heartbeatData.availableRegions.length > 1" class="text-left font-medium text-muted-foreground px-4 py-2.5">Region</th>
                 <th class="text-left font-medium text-muted-foreground px-4 py-2.5">Response</th>
                 <th class="text-left font-medium text-muted-foreground px-4 py-2.5">Checked At</th>
                 <th class="text-left font-medium text-muted-foreground px-4 py-2.5">Message</th>
@@ -378,6 +407,11 @@ const uptimeColor = (val: number | null) => {
               >
                 <td class="px-4 py-2.5">
                   <StatusBadge :status="hb.status" size="sm" />
+                </td>
+                <td v-if="heartbeatData.availableRegions.length > 1" class="px-4 py-2.5">
+                  <span class="font-mono text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    {{ formatRegionLabel(hb.region ?? 'local') }}
+                  </span>
                 </td>
                 <td class="px-4 py-2.5 text-foreground tabular-nums">{{ formatResponseTime(hb.responseTimeMs) }}</td>
                 <td class="px-4 py-2.5 text-muted-foreground">{{ formatDate(hb.checkedAt) }}</td>

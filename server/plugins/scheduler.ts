@@ -42,12 +42,17 @@ async function checkMonitor(monitorId: number) {
     lastCheckedAt.set(monitorId, now)
 
     const regions = parseRegions(monitor.regions)
+    const hasRegions = regions.length > 0
     const matchedAgents = readAgents().filter(a => regions.includes(a.region))
     const useAgents = matchedAgents.length > 0 && monitor.intervalSeconds >= 30
 
     let overallStatus: 'up' | 'down'
     let overallMessage: string
     let overallResponseTimeMs: number
+    // True only when we have actual results from the configured regions.
+    // Notifications are suppressed when regions are configured but agents are unreachable,
+    // so we never alert based on a local fallback when regional checks were expected.
+    let gotRegionalResults = false
 
     if (useAgents) {
       const regionResults = await checkViaAgents(
@@ -70,6 +75,7 @@ async function checkMonitor(monitorId: number) {
           overallResponseTimeMs = result.responseTimeMs
         }
       } else {
+        gotRegionalResults = true
         // Insert one heartbeat per region
         for (const r of regionResults) {
           db.insert(heartbeats).values({
@@ -101,10 +107,13 @@ async function checkMonitor(monitorId: number) {
     const prevStatus = previousStatus.get(monitorId)
     previousStatus.set(monitorId, overallStatus)
 
+    // When regions are configured, only notify from actual regional results.
+    // Fall back to local status only when no regions are configured.
     const isAlertableChange =
       prevStatus !== undefined &&
       prevStatus !== overallStatus &&
-      (overallStatus === 'down' || overallStatus === 'up')
+      (overallStatus === 'down' || overallStatus === 'up') &&
+      (!hasRegions || gotRegionalResults)
 
     if (isAlertableChange) {
       const settings = readSettings()

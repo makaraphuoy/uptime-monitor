@@ -378,7 +378,7 @@ const isConfigured = computed(() => {
               <span class="text-sm font-medium text-foreground">{{ agent.name }}</span>
               <Badge variant="outline" class="text-[10px] font-mono uppercase">{{ agent.region }}</Badge>
             </div>
-            <p class="text-xs text-muted-foreground font-mono mt-0.5 truncate">{{ agent.url }}</p>
+            <p class="text-xs text-muted-foreground font-mono mt-0.5 truncate blur-sm hover:blur-none transition-[filter] duration-200 cursor-pointer select-none">{{ agent.url }}</p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <Transition name="fade">
