@@ -70,7 +70,7 @@ const recentPageSize = ref(20)
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
 
 const formatRegionLabel = (r: string) =>
-  r === 'local' ? 'Local' : r.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  r === 'local' ? 'All Regions' : r.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
 async function fetchDetail() {
   try { monitor.value = await $fetch<MonitorDetail>(`/api/monitors/${monitorId.value}`) }

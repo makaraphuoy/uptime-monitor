@@ -90,7 +90,7 @@ if (!heartbeatCols.includes('duration_ms')) {
 const monitorCols = (sqlite.pragma('table_info(monitors)') as { name: string }[]).map(c => c.name)
 
 if (!monitorCols.includes('user_id')) {
-  sqlite.exec(`ALTER TABLE monitors ADD COLUMN user_id INTEGER REFERENCES users(id)`)
+  sqlite.exec(`ALTER TABLE monitors ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`)
   console.log('[DB] Added user_id column to monitors')
 }
 if (!monitorCols.includes('visibility')) {
@@ -132,6 +132,7 @@ sqlite.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS heartbeats_monitor_checked_idx ON heartbeats (monitor_id, checked_at);
+  CREATE INDEX IF NOT EXISTS heartbeats_monitor_region_idx ON heartbeats (monitor_id, region, checked_at);
   CREATE INDEX IF NOT EXISTS monitors_user_id_idx ON monitors (user_id);
   CREATE INDEX IF NOT EXISTS monitors_visibility_idx ON monitors (visibility);
 `)

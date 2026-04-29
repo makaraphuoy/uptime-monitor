@@ -32,7 +32,7 @@ export const monitors = sqliteTable('monitors', {
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   visibility: text('visibility', { enum: ['public', 'private'] }).notNull().default('public'),
   regions: text('regions').default('["asia"]'),
-  userId: integer('user_id').references(() => users.id),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 }, (t) => ({
@@ -54,8 +54,10 @@ export const heartbeats = sqliteTable('heartbeats', {
   message: text('message'),
   region: text('region').default('local'),
 }, (t) => ({
-  // Covers all queries: filter by monitor + sort/range by time
+  // Covers unfiltered monitor queries (stats, pruning)
   monitorCheckedAtIdx: index('heartbeats_monitor_checked_idx').on(t.monitorId, t.checkedAt),
+  // Covers region-filtered queries (chart, recent checks, stats by region)
+  monitorRegionIdx: index('heartbeats_monitor_region_idx').on(t.monitorId, t.region, t.checkedAt),
 }))
 
 // Relations ─
