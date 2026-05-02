@@ -1,102 +1,146 @@
-You are a senior backend architect.
-
-I currently have an uptime monitoring system built with Node.js (Hono + Nitro) + SQLite (Drizzle ORM). It supports:
-- HTTP/TCP monitors
-- multi-region checks (agents)
-- heartbeats storage
-- notifications
-- interval-based monitoring
-
-However, the current scheduler design uses setInterval per monitor, which causes:
-- possible overlapping executions
-- memory-based state (Maps)
-- poor scalability for multi-instance / serverless environments
-- no proper centralized scheduling or locking mechanism
 
 ---
 
-## Current goals
+## System Architecture
 
-I want to refactor the system into a production-grade architecture that:
+I have a hybrid system:
 
-### Must have
-1. Replace setInterval-based scheduler with a centralized DB-driven scheduler
-2. Prevent overlapping checks per monitor (strong locking mechanism)
-3. Support multi-region checks (Asia, Australia, etc.)
-4. Keep retry/failure logic safe and consistent
-5. Ensure safe execution under concurrency (multiple workers possible)
-6. Reduce reliance on in-memory state (Maps should not be required for correctness)
+### 1. uptime-monitor (VPS)
+- Node.js (Hono/Nitro)
+- SQLite database (Drizzle ORM)
+- Responsible for scheduling + storing state
 
-### Nice to have
-- Ability to scale horizontally (multiple instances)
-- Minimal changes to existing business logic (reuse performCheck, checkViaAgents, etc.)
-- Keep SQLite + Drizzle ORM
-- Keep current notification system
+### 2. uptime-agent (AWS Lambda)
+- Stateless execution worker
+- Performs HTTP/TCP uptime checks
+- Returns results per region (e.g. Asia, Australia)
 
 ---
 
-## Current schema behavior (important context)
+## Core Goal
 
-Each monitor has:
-- id
-- intervalSeconds
-- enabled
-- url/type
-- regions (optional)
+Refactor the scheduler into a **simple, correct, production-safe VPS-based design** using SQLite.
 
-Heartbeats are stored per check and per region.
+NOT distributed. NOT multi-instance. NOT overengineered.
 
 ---
 
-## What I want you to design
+## Hard constraints
+
+- SQLite remains (no migration to Postgres/Redis)
+- Single VPS only
+- AWS Lambda only executes checks (no scheduling logic in Lambda)
+- Must avoid setInterval-per-monitor design
+- Must be safe under restart and avoid duplicate execution
+- Must NOT use distributed locking systems
+
+---
+
+## Required architecture
+
+### 1. Scheduler (VPS global loop)
+- Single global setInterval (3–10 seconds)
+- Queries due monitors:
+  - enabled = true
+  - next_check_at <= NOW()
+  - LIMIT batch size (10–50)
+
+---
+
+### 2. Atomic scheduling (VERY IMPORTANT)
+
+Each monitor must be claimed using a single atomic SQL UPDATE:
+
+- next_check_at is updated BEFORE execution
+- last_checked_at is updated at the same time
+- claim succeeds only if next_check_at <= NOW() AND enabled = 1
+
+This ensures:
+- no duplicate execution
+- no overlapping checks
+- safe restart recovery
+
+---
+
+### 3. Execution model (IMPORTANT CLARIFICATION)
+
+The scheduler MUST be NON-BLOCKING.
+
+- Scheduler tick must NOT await monitor execution
+- Checks must run asynchronously in background
+- Scheduler continues polling immediately
+
+Correct pattern:
+
+for each due monitor:
+  runCheck(monitor).catch(log error)
+
+NOT true fire-and-forget where results are lost.
+
+---
+
+### 4. Worker execution (Lambda side)
+
+Lambda:
+- performs HTTP/TCP check
+- returns result per region
+- execution is awaited inside runCheck()
+
+---
+
+### 5. Result handling
+
+After Lambda completes:
+- store heartbeat in SQLite
+- update last_status
+- update last_checked_at (if needed)
+- trigger notification only on status change
+
+---
+
+### 6. Multi-region logic
+
+Keep existing region-based agent system:
+- run checks across regions
+- aggregate using majority status
+- store per-region heartbeats
+
+---
+
+## Required DB schema updates
+
+Add fields:
+
+- next_check_at (CRITICAL — scheduling source of truth)
+- last_checked_at
+- last_status (DEFAULT NULL — no default value, NULL means "no status known yet")
+
+### last_status rules
+
+- Schema: `last_status TEXT` with no default (NULL)
+- NULL = new monitor or no check has completed yet → skip notification
+- Notification guard: `last_status IS NOT NULL AND last_status != overallStatus`
+- Never use 'pending' or 'unknown' as defaults — NULL is the correct sentinel
+
+---
+
+## What to avoid
+
+- No per-monitor setInterval
+- No in-memory Maps as source of truth
+- No locked_until system
+- No queue system (not required)
+- No distributed architecture assumptions
+- No true fire-and-forget (results must be handled)
+
+---
+
+## Expected output
 
 Please provide:
 
-### 1. New architecture design
-Explain clearly:
-- scheduler role
-- worker role
-- DB role
-- execution flow
-
-### 2. Database changes (if needed)
-Suggest fields like:
-- next_check_at
-- locked_until
-- last_status
-- last_checked_at
-
-### 3. New scheduler algorithm
-Replace setInterval logic with:
-- polling approach OR cron-based approach
-- batching strategy (LIMIT)
-- safe concurrency handling
-
-### 4. Locking strategy
-Design a safe mechanism using SQL/SQLite to prevent:
-- duplicate execution
-- race conditions
-- multi-instance conflicts
-
-### 5. Execution flow
-Step-by-step flow from:
-scheduler → worker → DB update → notification
-
-### 6. Minimal refactor plan
-Explain how to migrate from current code with minimal disruption.
-
----
-
-## Constraints
-- Keep SQLite compatible (no heavy infra like Redis required unless optional)
-- Keep it simple but production-safe
-- Avoid overengineering (no Kafka unless necessary)
-- Must work in serverless environments (like AWS Lambda)
-- Keep multi-region agent logic intact
-
----
-
-## Existing code context
-(Assume current system uses setInterval per monitor + Maps for state + Drizzle ORM + SQLite + region-based agents)
-
-Now redesign it properly.
+1. Final architecture design
+2. Scheduler algorithm (step-by-step)
+3. Atomic SQL claim query
+4. Correct async execution model explanation
+5. Minimal migration plan from current system

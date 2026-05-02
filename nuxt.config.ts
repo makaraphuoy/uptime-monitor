@@ -1,5 +1,11 @@
 export default defineNuxtConfig({
   ssr: false,
+  runtimeConfig: {
+    public: {
+      // UI auto-refresh countdown (seconds). Override via NUXT_PUBLIC_REFRESH_INTERVAL env var.
+      refreshInterval: parseInt(process.env.NUXT_PUBLIC_REFRESH_INTERVAL || '60', 10),
+    },
+  },
   devServer: {
     port: parseInt(process.env.PORT || '3000'),
   },
