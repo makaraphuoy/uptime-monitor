@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Globe, Lock, MapPin, Server, Wifi } from 'lucide-vue-next'
+import { Globe, Lock, MapPin, Server } from 'lucide-vue-next'
 import type { Monitor as MonitorType } from '~/stores/monitors'
 import { useMonitorsStore } from '~/stores/monitors'
 
@@ -38,7 +38,7 @@ function toggleRegion(region: string) {
 const defaultForm = {
   name: '',
   url: '',
-  type: 'http' as 'http' | 'tcp' | 'ping',
+  type: 'http' as 'http' | 'tcp',
   intervalSeconds: 60,
   timeoutSeconds: 30,
   enabled: true,
@@ -98,10 +98,7 @@ function validate() {
       errors.value.url = 'Required format: host:port or tcp://host:port'
     }
   }
-  if (form.value.type === 'ping' && availableRegions.value.length === 0) {
-    errors.value.general = 'Ping requires at least one agent configured in Settings'
-  }
-  return Object.keys(errors.value).length === 0
+return Object.keys(errors.value).length === 0
 }
 
 async function handleSubmit() {
@@ -154,7 +151,7 @@ async function handleSubmit() {
       <!-- Type Toggle -->
       <div class="space-y-1.5">
         <Label>Monitor Type</Label>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-2 gap-2">
           <button
             type="button"
             :class="[
@@ -179,32 +176,19 @@ async function handleSubmit() {
           >
             <Server class="size-4" />TCP
           </button>
-          <button
-            type="button"
-            :class="[
-              'flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-all',
-              form.type === 'ping'
-                ? 'bg-primary/10 border-primary/50 text-primary'
-                : 'border-input bg-background text-muted-foreground hover:border-border hover:text-foreground'
-            ]"
-            @click="form.type = 'ping'"
-          >
-            <Wifi class="size-4" />Ping
-          </button>
         </div>
       </div>
 
       <!-- URL / Host:Port / Hostname -->
       <div class="space-y-1.5">
-        <Label for="monitor-url">{{ form.type === 'http' ? 'URL' : form.type === 'tcp' ? 'Host : Port' : 'Hostname / IP' }}</Label>
+        <Label for="monitor-url">{{ form.type === 'http' ? 'URL' : 'Host : Port' }}</Label>
         <Input
           id="monitor-url"
           v-model="form.url"
-          :placeholder="form.type === 'http' ? 'https://example.com' : form.type === 'tcp' ? 'example.com:443' : 'example.com'"
+          :placeholder="form.type === 'http' ? 'https://example.com' : 'example.com:443'"
           class="font-mono text-[13px]"
           :class="errors.url ? 'border-destructive focus-visible:ring-destructive' : ''"
         />
-        <p v-if="form.type === 'ping'" class="text-xs text-muted-foreground">Ping runs from agents only — requires at least one agent configured in Settings.</p>
         <p v-if="errors.url" class="text-xs text-destructive">{{ errors.url }}</p>
       </div>
 

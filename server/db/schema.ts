@@ -26,7 +26,7 @@ export const monitors = sqliteTable('monitors', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   url: text('url').notNull(),
-  type: text('type', { enum: ['http', 'tcp', 'ping'] }).notNull().default('http'),
+  type: text('type', { enum: ['http', 'tcp'] }).notNull().default('http'),
   intervalSeconds: integer('interval_seconds').notNull().default(60),
   timeoutSeconds: integer('timeout_seconds').notNull().default(30),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),

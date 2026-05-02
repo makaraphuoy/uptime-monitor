@@ -56,24 +56,17 @@ async function checkMonitor(monitorId: number) {
 
     if (useAgents) {
       const regionResults = await checkViaAgents(
-        monitor.type as 'http' | 'tcp' | 'ping',
+        monitor.type as 'http' | 'tcp',
         monitor.url,
         monitor.timeoutSeconds,
         regions
       )
 
       if (regionResults.length === 0) {
-        if (monitor.type === 'ping') {
-          // Ping has no local fallback — mark down with explanation
-          overallStatus = 'down'
-          overallMessage = 'All agents unreachable — ping requires an agent'
-          overallResponseTimeMs = 0
-        } else {
-          const result = await performCheck(monitor.type as 'http' | 'tcp', monitor.url, monitor.timeoutSeconds)
-          overallStatus = result.status
-          overallMessage = result.message
-          overallResponseTimeMs = result.responseTimeMs
-        }
+        const result = await performCheck(monitor.type as 'http' | 'tcp', monitor.url, monitor.timeoutSeconds)
+        overallStatus = result.status
+        overallMessage = result.message
+        overallResponseTimeMs = result.responseTimeMs
       } else {
         gotRegionalResults = true
         // Insert one heartbeat per region
