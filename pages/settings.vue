@@ -378,7 +378,7 @@ const isConfigured = computed(() => {
               <span class="text-sm font-medium text-foreground">{{ agent.name }}</span>
               <Badge variant="outline" class="text-[10px] font-mono uppercase">{{ agent.region }}</Badge>
             </div>
-            <p class="text-xs text-muted-foreground font-mono mt-0.5 truncate blur-sm hover:blur-none transition-[filter] duration-200 cursor-pointer select-none">{{ agent.url }}</p>
+            <!-- <p class="text-xs text-muted-foreground font-mono mt-0.5 truncate blur-sm hover:blur-none transition-[filter] duration-200 cursor-pointer select-none">{{ agent.url }}</p> -->
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <Transition name="fade">
@@ -398,13 +398,13 @@ const isConfigured = computed(() => {
               <Loader2 v-if="agentTestResults[agent.id]?.loading" class="size-3 animate-spin" />
               <span v-else>Test</span>
             </Button>
-            <Button
+            <!-- <Button
               variant="ghost" size="sm"
               class="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
               @click="removeAgent(agent.id)"
             >
               <Trash2 class="size-3.5" />
-            </Button>
+            </Button> -->
           </div>
         </div>
       </div>

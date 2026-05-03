@@ -227,7 +227,7 @@ export default defineNitroPlugin(() => {
   // Purge expired sessions hourly
   setInterval(() => {
     try {
-      const result = sqlite.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now())
+      const result = sqlite.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Math.floor(Date.now() / 1000))
       if (result.changes > 0) {
         console.log(`[Scheduler] Pruned ${result.changes} expired session(s)`)
       }
