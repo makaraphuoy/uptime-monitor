@@ -58,6 +58,7 @@ export function getSessionToken(event: H3Event): string | undefined {
 export function setSessionCookie(event: H3Event, token: string): void {
   setCookie(event, SESSION_COOKIE, token, {
     httpOnly: true,
+    secure: true,
     sameSite: 'lax',
     path: '/',
     // No maxAge → session cookie (dies when browser closes)

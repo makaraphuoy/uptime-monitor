@@ -51,7 +51,7 @@ export function removeAgent(id: string): Agent[] {
 }
 
 export async function checkViaAgents(
-  type: 'http' | 'tcp' | 'ping',
+  type: 'http' | 'tcp',
   url: string,
   timeoutSeconds: number,
   regions: string[]

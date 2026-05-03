@@ -101,6 +101,18 @@ if (!monitorCols.includes('regions')) {
   sqlite.exec(`ALTER TABLE monitors ADD COLUMN regions TEXT DEFAULT '["asia"]'`)
   console.log('[DB] Added regions column to monitors')
 }
+if (!monitorCols.includes('next_check_at')) {
+  sqlite.exec(`ALTER TABLE monitors ADD COLUMN next_check_at INTEGER`)
+  console.log('[DB] Added next_check_at column to monitors')
+}
+if (!monitorCols.includes('last_checked_at')) {
+  sqlite.exec(`ALTER TABLE monitors ADD COLUMN last_checked_at INTEGER`)
+  console.log('[DB] Added last_checked_at column to monitors')
+}
+if (!monitorCols.includes('last_status')) {
+  sqlite.exec(`ALTER TABLE monitors ADD COLUMN last_status TEXT`)
+  console.log('[DB] Added last_status column to monitors')
+}
 
 // Seed admin user (only if no users exist) ─
 
@@ -135,6 +147,7 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS heartbeats_monitor_region_idx ON heartbeats (monitor_id, region, checked_at);
   CREATE INDEX IF NOT EXISTS monitors_user_id_idx ON monitors (user_id);
   CREATE INDEX IF NOT EXISTS monitors_visibility_idx ON monitors (visibility);
+  CREATE INDEX IF NOT EXISTS monitors_next_check_idx ON monitors (enabled, next_check_at);
 `)
 
 console.log('[DB] Tables ready')

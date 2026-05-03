@@ -32,8 +32,8 @@ const deletingId = ref<number | null>(null)
 const searchQuery = ref('')
 const filterStatus = ref<'all' | 'up' | 'down' | 'pending'>('all')
 
-// Auto-refresh every 30 s — track countdown for display
-const REFRESH_INTERVAL = 30
+// Auto-refresh interval in seconds — driven by NUXT_PUBLIC_REFRESH_INTERVAL env var (default 60)
+const REFRESH_INTERVAL = useRuntimeConfig().public.refreshInterval
 const countdown = ref(REFRESH_INTERVAL)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
@@ -149,7 +149,9 @@ const STATUS_FILTERS = ['all', 'up', 'down', 'pending'] as const
           <RefreshCw :class="['size-3.5', store.loading && 'animate-spin']" />
           <span class="hidden sm:inline">Refresh</span>
         </Button>
-        <Button size="sm" class="gap-1.5" @click="openAdd">
+        <Button 
+        :disabled="store.totalMonitors >= 10"
+        size="sm" class="gap-1.5" @click="openAdd">
           <Plus class="size-3.5" />
           Add Monitor
         </Button>

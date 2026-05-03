@@ -26,7 +26,7 @@ export const monitors = sqliteTable('monitors', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   url: text('url').notNull(),
-  type: text('type', { enum: ['http', 'tcp', 'ping'] }).notNull().default('http'),
+  type: text('type', { enum: ['http', 'tcp'] }).notNull().default('http'),
   intervalSeconds: integer('interval_seconds').notNull().default(60),
   timeoutSeconds: integer('timeout_seconds').notNull().default(30),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
@@ -35,9 +35,14 @@ export const monitors = sqliteTable('monitors', {
   userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  // Scheduling fields — source of truth for the global tick loop
+  nextCheckAt: integer('next_check_at'),    // Unix ms; NULL = not yet scheduled
+  lastCheckedAt: integer('last_checked_at'), // Unix ms of last completed check claim
+  lastStatus: text('last_status'),           // NULL = no check completed yet (skip notification)
 }, (t) => ({
   userIdIdx:    index('monitors_user_id_idx').on(t.userId),
   visibilityIdx: index('monitors_visibility_idx').on(t.visibility),
+  nextCheckIdx: index('monitors_next_check_idx').on(t.enabled, t.nextCheckAt),
 }))
 
 // Heartbeats 
