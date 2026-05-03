@@ -149,7 +149,9 @@ const STATUS_FILTERS = ['all', 'up', 'down', 'pending'] as const
           <RefreshCw :class="['size-3.5', store.loading && 'animate-spin']" />
           <span class="hidden sm:inline">Refresh</span>
         </Button>
-        <Button size="sm" class="gap-1.5" @click="openAdd">
+        <Button 
+        :disabled="store.totalMonitors >= 10"
+        size="sm" class="gap-1.5" @click="openAdd">
           <Plus class="size-3.5" />
           Add Monitor
         </Button>
