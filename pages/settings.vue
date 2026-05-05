@@ -7,6 +7,7 @@ import {
   EyeOff,
   Loader2,
   Plus,
+  RefreshCw,
   Send,
   Server,
   Trash2,
@@ -67,7 +68,7 @@ async function removeAgent(id: string) {
   agents.value = await $fetch<Agent[]>(`/api/agents/${id}`, { method: 'DELETE' })
 }
 
-async function testAgent(id: string, url: string) {
+async function testAgent(id: string) {
   agentTestResults.value[id] = { ok: false, message: '', loading: true }
   try {
     const res = await $fetch<{ ok: boolean; region?: string; version?: string; message?: string }>(
@@ -75,13 +76,20 @@ async function testAgent(id: string, url: string) {
     )
     agentTestResults.value[id] = {
       ok: res.ok,
-      message: res.ok ? `Connected — region: ${res.region}, v${res.version}` : (res.message ?? 'Failed'),
+      message: res.ok ? `Connected · region: ${res.region}, v${res.version}` : (res.message ?? 'Failed'),
       loading: false,
     }
   } catch (err: any) {
     agentTestResults.value[id] = { ok: false, message: err?.data?.message ?? 'Unreachable', loading: false }
   }
-  setTimeout(() => { delete agentTestResults.value[id] }, 8000)
+}
+
+const someAgentLoading = computed(() =>
+  agents.value.some(a => agentTestResults.value[a.id]?.loading)
+)
+
+function testAllAgents() {
+  agents.value.forEach(a => testAgent(a.id))
 }
 
 interface AppSettings {
@@ -128,7 +136,8 @@ onMounted(async () => {
     const data = await $fetch<AppSettings>('/api/settings')
     settings.value = data
   } catch {}
-  fetchAgents()
+  await fetchAgents()
+  testAllAgents()
 })
 
 async function saveSettings() {
@@ -335,9 +344,15 @@ const isConfigured = computed(() => {
           <Server class="size-4 text-muted-foreground" />
           <h2 class="text-sm font-semibold text-foreground">Region Agents</h2>
         </div>
-        <Button variant="outline" size="sm" class="gap-1.5 h-7 text-xs" @click="showAddAgent = !showAddAgent">
-          <Plus class="size-3.5" />Add Agent
-        </Button>
+        <div class="flex items-center gap-2">
+          <Button v-if="agents.length" variant="ghost" size="sm" class="gap-1.5 h-7 text-xs text-muted-foreground" :disabled="someAgentLoading" @click="testAllAgents">
+            <RefreshCw class="size-3.5" :class="{ 'animate-spin': someAgentLoading }" />
+            Refresh
+          </Button>
+          <Button variant="outline" size="sm" class="gap-1.5 h-7 text-xs" @click="showAddAgent = !showAddAgent">
+            <Plus class="size-3.5" />Add Agent
+          </Button>
+        </div>
       </div>
 
       <!-- Add form -->
@@ -373,38 +388,41 @@ const isConfigured = computed(() => {
       <!-- Agent list -->
       <div v-if="agents.length" class="divide-y divide-border/50">
         <div v-for="agent in agents" :key="agent.id" class="flex items-center justify-between px-5 py-3 gap-4">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-sm font-medium text-foreground">{{ agent.name }}</span>
-              <Badge variant="outline" class="text-[10px] font-mono uppercase">{{ agent.region }}</Badge>
-            </div>
-            <!-- <p class="text-xs text-muted-foreground font-mono mt-0.5 truncate blur-sm hover:blur-none transition-[filter] duration-200 cursor-pointer select-none">{{ agent.url }}</p> -->
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <Transition name="fade">
-              <span
+          <div class="min-w-0 flex items-start gap-2.5">
+            <!-- Status dot -->
+            <div
+              class="mt-1.5 size-2 rounded-full shrink-0 transition-colors"
+              :class="
+                !agentTestResults[agent.id]         ? 'bg-muted-foreground/30' :
+                agentTestResults[agent.id].loading   ? 'bg-muted-foreground/40 animate-pulse' :
+                agentTestResults[agent.id].ok        ? 'bg-green-500' : 'bg-red-500'
+              "
+            />
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-foreground">{{ agent.name }}</span>
+                <Badge variant="outline" class="text-[10px] font-mono uppercase">{{ agent?.region }}</Badge>
+              </div>
+              <p
                 v-if="agentTestResults[agent.id] && !agentTestResults[agent.id].loading"
-                :class="['text-xs', agentTestResults[agent.id].ok ? 'text-green-400' : 'text-red-400']"
+                class="text-xs mt-0.5"
+                :class="agentTestResults[agent.id].ok ? 'text-muted-foreground' : 'text-red-400'"
               >
                 {{ agentTestResults[agent.id].message }}
-              </span>
-            </Transition>
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
             <Button
-              variant="outline" size="sm"
-              class="h-7 px-2.5 text-xs gap-1.5"
-              :disabled="agentTestResults[agent.id]?.loading"
-              @click="testAgent(agent.id, agent.url)"
-            >
-              <Loader2 v-if="agentTestResults[agent.id]?.loading" class="size-3 animate-spin" />
-              <span v-else>Test</span>
-            </Button>
-            <!-- <Button
               variant="ghost" size="sm"
-              class="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-              @click="removeAgent(agent.id)"
+              class="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              :disabled="agentTestResults[agent.id]?.loading"
+              :title="`Refresh ${agent.name}`"
+              @click="testAgent(agent.id)"
             >
-              <Trash2 class="size-3.5" />
-            </Button> -->
+              <Loader2 v-if="agentTestResults[agent.id]?.loading" class="size-3.5 animate-spin" />
+              <RefreshCw v-else class="size-3.5" />
+            </Button>
           </div>
         </div>
       </div>

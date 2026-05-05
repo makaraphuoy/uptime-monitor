@@ -58,6 +58,7 @@ export const heartbeats = sqliteTable('heartbeats', {
   checkedAt: integer('checked_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
   message: text('message'),
   region: text('region').default('local'),
+  failures: integer('failures').default(0),
 }, (t) => ({
   // Covers unfiltered monitor queries (stats, pruning)
   monitorCheckedAtIdx: index('heartbeats_monitor_checked_idx').on(t.monitorId, t.checkedAt),

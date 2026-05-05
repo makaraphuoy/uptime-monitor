@@ -15,6 +15,13 @@
       "when": 1743897600000,
       "tag": "0001_settings_table",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777971047353,
+      "tag": "0002_optimal_hobgoblin",
+      "breakpoints": true
     }
   ]
 }

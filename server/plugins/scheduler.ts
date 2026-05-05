@@ -88,6 +88,7 @@ async function runCheck(m: ClaimedMonitor) {
     let overallStatus: 'up' | 'down'
     let overallMessage: string
     let overallResponseTimeMs: number
+    let overallFailures = 0
     let gotRegionalResults = false
 
     if (useAgents) {
@@ -99,17 +100,26 @@ async function runCheck(m: ClaimedMonitor) {
       )
 
       if (regionResults.length === 0) {
+        console.warn(`[Scheduler] ${m.name}: all agents unreachable, falling back to local check`)
         const result = await performCheck(m.type, m.url, m.timeout_seconds)
         overallStatus = result.status
         overallMessage = result.message
         overallResponseTimeMs = result.responseTimeMs
+        overallFailures = result.failures
+        if (result.failures > 0) {
+          console.log(`[Scheduler] ${m.name} local: recovered after ${result.failures} failure(s) in ${result.attempts} attempt(s)`)
+        }
       } else {
         gotRegionalResults = true
         for (const r of regionResults) {
+          if (r.failures > 0) {
+            console.log(`[Scheduler] ${m.name} agent ${r.region}: ${r.status} after ${r.attempts} attempt(s), ${r.failures} failure(s)`)
+          }
           db.insert(heartbeats).values({
             monitorId: m.id, status: r.status,
             responseTimeMs: r.responseTimeMs, durationMs,
             checkedAt: new Date(now), message: r.message, region: r.region,
+            failures: r.failures,
           }).run()
         }
         overallStatus = majorityStatus(regionResults)
@@ -123,12 +133,17 @@ async function runCheck(m: ClaimedMonitor) {
       overallStatus = result.status
       overallMessage = result.message
       overallResponseTimeMs = result.responseTimeMs
+      overallFailures = result.failures
+      if (result.failures > 0) {
+        console.log(`[Scheduler] ${m.name} local: recovered after ${result.failures} failure(s) in ${result.attempts} attempt(s)`)
+      }
     }
 
     db.insert(heartbeats).values({
       monitorId: m.id, status: overallStatus,
       responseTimeMs: overallResponseTimeMs, durationMs,
       checkedAt: new Date(now), message: overallMessage, region: 'local',
+      failures: overallFailures,
     }).run()
 
     pruneStmt.run(m.id, m.id, HEARTBEAT_LIMIT)
