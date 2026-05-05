@@ -40,7 +40,7 @@ const defaultForm = {
   url: '',
   type: 'http' as 'http' | 'tcp',
   intervalSeconds: 60,
-  timeoutSeconds: 30,
+  timeoutSeconds: 5,
   enabled: true,
   visibility: 'public' as 'public' | 'private',
   regions: ['asia'] as string[],

@@ -415,7 +415,9 @@ const uptimeColor = (val: number | null) => {
                 </td>
                 <td class="px-4 py-2.5 text-foreground tabular-nums">{{ formatResponseTime(hb.responseTimeMs) }}</td>
                 <td class="px-4 py-2.5 text-muted-foreground">{{ formatDate(hb.checkedAt) }}</td>
-                <td class="px-4 py-2.5 text-muted-foreground/70 truncate max-w-xs">{{ hb.message || '—' }}</td>
+                <td class="px-4 py-2.5 text-muted-foreground/70 truncate max-w-xs">
+                  <span v-if="hb.failures && hb.failures > 0" class="inline-flex items-center mr-1.5 px-1 py-0.5 rounded text-[10px] font-mono bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 shrink-0">↺{{ hb.failures }}</span>{{ hb.message || '—' }}
+                </td>
               </tr>
             </tbody>
           </table>
