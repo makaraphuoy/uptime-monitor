@@ -423,6 +423,14 @@ const isConfigured = computed(() => {
               <Loader2 v-if="agentTestResults[agent.id]?.loading" class="size-3.5 animate-spin" />
               <RefreshCw v-else class="size-3.5" />
             </Button>
+            <Button
+              variant="ghost" size="sm"
+              class="h-7 w-7 p-0 text-muted-foreground hover:text-red-400"
+              :title="`Delete ${agent.name}`"
+              @click="removeAgent(agent.id)"
+            >
+              <Trash2 class="size-3.5" />
+            </Button>
           </div>
         </div>
       </div>
